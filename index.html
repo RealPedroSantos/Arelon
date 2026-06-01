@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/png" href="/favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=REM:wght@900&display=swap" rel="stylesheet" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Arelon</title>
+</head>
+
+<body>
+  <script>
+    (function () {
+      function isTizenTV() {
+        var ua = navigator.userAgent || "";
+        return /Tizen|SMART-TV|SamsungBrowser|TV/i.test(ua) || !!window.tizen;
+      }
+
+      window.__IS_TIZEN_TV__ = isTizenTV();
+
+      if (window.__IS_TIZEN_TV__) {
+        document.body.classList.add("tizen-tv");
+        document.body.classList.add("tv-mode");
+      }
+    })();
+  </script>
+  <div id="root"></div>
+  <script>
+    (function () {
+      function getCommand(event) {
+        var key = event.key;
+        var code = event.code;
+        var keyCode = event.keyCode || event.which;
+        if (key === "ArrowUp" || key === "Up" || code === "ArrowUp" || keyCode === 38) return "UP";
+        if (key === "ArrowDown" || key === "Down" || code === "ArrowDown" || keyCode === 40) return "DOWN";
+        // Alt+Left = atalho nativo de "voltar" no NW.js/Chromium — deve ser BACK, não LEFT.
+        // Esta verificação PRECISA vir antes do mapeamento LEFT.
+        if (event.altKey && (key === "ArrowLeft" || key === "Left" || keyCode === 37)) return "BACK";
+        if (key === "ArrowLeft" || key === "Left" || code === "ArrowLeft" || keyCode === 37) return "LEFT";
+        if (key === "ArrowRight" || key === "Right" || code === "ArrowRight" || keyCode === 39) return "RIGHT";
+        if (key === "Enter" || key === "OK" || key === "Select" || code === "Enter" || keyCode === 13) return "ENTER";
+        if (
+          key === "Backspace" || key === "Escape" || key === "Esc" ||
+          key === "Back" || key === "BrowserBack" ||
+          key === "XF86Back" || key === "Return" ||
+          keyCode === 8 || keyCode === 27 || keyCode === 10009
+        ) return "BACK";
+        if (key === "ContextMenu" || key === "Menu" || key === "Tools" || keyCode === 93 || keyCode === 10133) return "MENU";
+        return null;
+      }
+      function consume(event) {
+        try { event.preventDefault(); } catch (e) { }
+        try { event.stopPropagation(); } catch (e) { }
+        try { event.stopImmediatePropagation(); } catch (e) { }
+        event.cancelBubble = true;
+        event.returnValue = false;
+      }
+      function emit(command, type, event) {
+        window.__TV_REMOTE_LAST_EVENT__ = { type: type, command: command, key: event.key, code: event.code, keyCode: event.keyCode || event.which, time: Date.now() };
+
+        // Play sound ONLY on keydown / tizenhwkey (not on keyup) to avoid double sound
+        if (type === "keydown" || type === "tizenhwkey") {
+          try {
+            if (command === 'UP' || command === 'DOWN' || command === 'LEFT' || command === 'RIGHT') {
+              if (window.__ArelonPlayMoveSound) window.__ArelonPlayMoveSound();
+            } else if (command === 'ENTER' || command === 'BACK') {
+              if (window.__ArelonPlaySelectSound) window.__ArelonPlaySelectSound();
+            }
+          } catch (e) {}
+        }
+
+        window.dispatchEvent(new CustomEvent("tv-remote-command", { detail: { type: type, command: command, key: event.key, code: event.code, keyCode: event.keyCode || event.which } }));
+      }
+      function handleKeyDown(event) {
+        if (event.__tvRemoteSynthetic) return;
+        var command = getCommand(event);
+        if (!command) return;
+        consume(event);
+        emit(command, "keydown", event);
+        return false;
+      }
+      function handleKeyUp(event) {
+        if (event.__tvRemoteSynthetic) return;
+        var command = getCommand(event);
+        if (!command) return;
+        consume(event);
+        emit(command, "keyup", event);
+        return false;
+      }
+      function handleTizenHwKey(event) {
+        var command = null;
+        if (event.keyName === "back" || event.keyName === "Back") command = "BACK";
+        if (event.keyName === "menu" || event.keyName === "Menu") command = "MENU";
+        if (!command) return;
+        consume(event);
+
+        window.dispatchEvent(new CustomEvent("tv-remote-command", { detail: { type: "tizenhwkey", command: command, keyName: event.keyName } }));
+        return false;
+      }
+      // Listener em window com capture:true intercepta TODOS os keydowns antes de
+      // qualquer elemento da página. O listener duplicado em document é desnecessário
+      // porque stopImmediatePropagation() no handler de window já bloqueia a propagação.
+      // Manter o duplicado pode causar edge-cases em certas versões do NW.js.
+      window.addEventListener("keydown", handleKeyDown, { capture: true, passive: false });
+      window.addEventListener("keyup", handleKeyUp, { capture: true, passive: false });
+      document.addEventListener("tizenhwkey", handleTizenHwKey, true);
+      try {
+        if (window.tizen && window.tizen.tvinputdevice) {
+          ["Return", "Tools", "MediaPlay", "MediaPause", "MediaPlayPause", "MediaFastForward", "MediaRewind"].forEach(function (key) {
+            try { window.tizen.tvinputdevice.registerKey(key); } catch (e) { }
+          });
+        }
+      } catch (e) { }
+      console.log("[TV Remote Blocker] instalado");
+    })();
+  </script>
+  <script>
+    // ── Viewport Scaling: fixa o layout em 1920×1080 e escala para caber ──
+    (function () {
+      var REF_W = 1920;
+      var REF_H = 1080;
+
+      function applyScale() {
+        var vw = window.innerWidth || document.documentElement.clientWidth || REF_W;
+        var vh = window.innerHeight || document.documentElement.clientHeight || REF_H;
+
+        // Na TV Tizen o app SEMPRE renderiza num viewport lógico 1920×1080 (perfil
+        // FHD, sem opt-in de UHD no config.xml), então a escala correta é exatamente 1.
+        // O fit-scale por innerWidth/innerHeight só faz sentido no navegador (dev),
+        // onde a janela tem tamanho arbitrário. Na TV, uma leitura ruim de innerWidth/
+        // innerHeight gerava scale < 1 e encolhia a interface inteira (borda preta).
+        var isTizen = !!window.__IS_TIZEN_TV__;
+        var scale = isTizen ? 1 : Math.min(vw / REF_W, vh / REF_H);
+
+        document.body.style.transformOrigin = 'top left';
+        document.body.style.webkitTransformOrigin = 'top left';
+        document.body.style.transform = 'scale(' + scale + ')';
+        document.body.style.webkitTransform = 'scale(' + scale + ')';
+
+        // Centraliza se houver barras pretas (letterbox/pillarbox) — só no navegador.
+        var scaledW = REF_W * scale;
+        var scaledH = REF_H * scale;
+        var offsetX = isTizen ? 0 : Math.max(0, (vw - scaledW) / 2);
+        var offsetY = isTizen ? 0 : Math.max(0, (vh - scaledH) / 2);
+        document.body.style.marginLeft = offsetX + 'px';
+        document.body.style.marginTop = offsetY + 'px';
+      }
+
+      // Aplica imediatamente e em cada resize
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', applyScale);
+      } else {
+        applyScale();
+      }
+      window.addEventListener('resize', applyScale);
+      // Roda mais uma vez após load para garantir em TVs lentas
+      window.addEventListener('load', function () {
+        setTimeout(applyScale, 100);
+      });
+    })();
+  </script>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
+</html>

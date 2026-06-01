@@ -1,0 +1,39 @@
+services:
+  config-api:
+    build:
+      context: .
+      target: api
+    container_name: vetraio-config-api
+    environment:
+      - CONFIG_API_PORT=8787
+      - CONFIG_DATA_DIR=/data
+    volumes:
+      - ./data:/data
+    ports:
+      - "8787:8787"
+
+  web-dev:
+    build:
+      context: .
+      target: dev
+    container_name: vetraio-web-dev
+    depends_on:
+      - config-api
+    environment:
+      - SHARED_CONFIG_PROXY_TARGET=http://config-api:8787
+    ports:
+      - "5175:5175"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run dev -- --host 0.0.0.0 --port 5175
+
+  web-prod:
+    build:
+      context: .
+      target: prod
+    container_name: vetraio-web-prod
+    depends_on:
+      - config-api
+    ports:
+      - "8080:80"

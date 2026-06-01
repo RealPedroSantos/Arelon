@@ -1,0 +1,4 @@
+{
+  "sharedConfigEndpoint": "/api/admin/shared-config",
+  "tvSharedConfigEndpoint": ""
+}

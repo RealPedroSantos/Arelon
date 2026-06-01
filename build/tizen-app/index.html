@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/png" href="./favicon.png" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Arelon</title>
+  <script type="module" crossorigin src="./assets/index-Db6z06vY.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/rolldown-runtime-jpDsebLB.js">
+  <link rel="modulepreload" crossorigin href="./assets/media-hls-CjfkXqoN.js">
+  <link rel="modulepreload" crossorigin href="./assets/react-vendor-DaSoaILB.js">
+  <link rel="modulepreload" crossorigin href="./assets/vendor-DKRpvPLA.js">
+  <link rel="stylesheet" crossorigin href="./assets/index-7K7yMuSj.css">
+</head>
+
+<body>
+  <script>
+    (function () {
+      function isTizenTV() {
+        var ua = navigator.userAgent || "";
+        return /Tizen|SMART-TV|SamsungBrowser|TV/i.test(ua) || !!window.tizen;
+      }
+
+      window.__IS_TIZEN_TV__ = isTizenTV();
+
+      if (window.__IS_TIZEN_TV__) {
+        document.body.classList.add("tizen-tv");
+        document.body.classList.add("tv-mode");
+      }
+    })();
+  </script>
+  <div id="root"></div>
+  <script>
+    (function () {
+      function getCommand(event) {
+        var key = event.key;
+        var code = event.code;
+        var keyCode = event.keyCode || event.which;
+        if (key === "ArrowUp" || key === "Up" || code === "ArrowUp" || keyCode === 38) return "UP";
+        if (key === "ArrowDown" || key === "Down" || code === "ArrowDown" || keyCode === 40) return "DOWN";
+        // Alt+Left = atalho nativo de "voltar" no NW.js/Chromium — deve ser BACK, não LEFT.
+        // Esta verificação PRECISA vir antes do mapeamento LEFT.
+        if (event.altKey && (key === "ArrowLeft" || key === "Left" || keyCode === 37)) return "BACK";
+        if (key === "ArrowLeft" || key === "Left" || code === "ArrowLeft" || keyCode === 37) return "LEFT";
+        if (key === "ArrowRight" || key === "Right" || code === "ArrowRight" || keyCode === 39) return "RIGHT";
+        if (key === "Enter" || key === "OK" || key === "Select" || code === "Enter" || keyCode === 13) return "ENTER";
+        if (
+          key === "Backspace" || key === "Escape" || key === "Esc" ||
+          key === "Back" || key === "BrowserBack" ||
+          key === "XF86Back" || key === "Return" ||
+          keyCode === 8 || keyCode === 27 || keyCode === 10009
+        ) return "BACK";
+        if (key === "ContextMenu" || key === "Menu" || key === "Tools" || keyCode === 93 || keyCode === 10133) return "MENU";
+        return null;
+      }
+      function consume(event) {
+        try { event.preventDefault(); } catch (e) { }
+        try { event.stopPropagation(); } catch (e) { }
+        try { event.stopImmediatePropagation(); } catch (e) { }
+        event.cancelBubble = true;
+        event.returnValue = false;
+      }
+      function emit(command, type, event) {
+        window.__TV_REMOTE_LAST_EVENT__ = { type: type, command: command, key: event.key, code: event.code, keyCode: event.keyCode || event.which, time: Date.now() };
+        window.dispatchEvent(new CustomEvent("tv-remote-command", { detail: { type: type, command: command, key: event.key, code: event.code, keyCode: event.keyCode || event.which } }));
+      }
+      function handleKeyDown(event) {
+        if (event.__tvRemoteSynthetic) return;
+        var command = getCommand(event);
+        if (!command) return;
+        consume(event);
+        emit(command, "keydown", event);
+        return false;
+      }
+      function handleKeyUp(event) {
+        if (event.__tvRemoteSynthetic) return;
+        var command = getCommand(event);
+        if (!command) return;
+        consume(event);
+        emit(command, "keyup", event);
+        return false;
+      }
+      function handleTizenHwKey(event) {
+        var command = null;
+        if (event.keyName === "back" || event.keyName === "Back") command = "BACK";
+        if (event.keyName === "menu" || event.keyName === "Menu") command = "MENU";
+        if (!command) return;
+        consume(event);
+        window.dispatchEvent(new CustomEvent("tv-remote-command", { detail: { type: "tizenhwkey", command: command, keyName: event.keyName } }));
+        return false;
+      }
+      // Listener em window com capture:true intercepta TODOS os keydowns antes de
+      // qualquer elemento da página. O listener duplicado em document é desnecessário
+      // porque stopImmediatePropagation() no handler de window já bloqueia a propagação.
+      // Manter o duplicado pode causar edge-cases em certas versões do NW.js.
+      window.addEventListener("keydown", handleKeyDown, { capture: true, passive: false });
+      window.addEventListener("keyup", handleKeyUp, { capture: true, passive: false });
+      document.addEventListener("tizenhwkey", handleTizenHwKey, true);
+      try {
+        if (window.tizen && window.tizen.tvinputdevice) {
+          ["Return", "Tools", "MediaPlay", "MediaPause", "MediaPlayPause", "MediaFastForward", "MediaRewind"].forEach(function (key) {
+            try { window.tizen.tvinputdevice.registerKey(key); } catch (e) { }
+          });
+        }
+      } catch (e) { }
+      console.log("[TV Remote Blocker] instalado");
+    })();
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,18 @@
+{
+    "connectionInfo": {
+        "deviceIp": "192.168.18.78",
+        "socketPort": 8498,
+        "httpPort": 8499
+    },
+    "profileInfo": {
+        "path": ""
+    },
+    "projectInfo": {
+        "width": "1920",
+        "watchFiles": ["src", "public"],
+        "appId": "vetraioiptv",
+        "appName": "VetraioIPTV",
+        "baseAppPath": "tizen",
+        "isDebugMode": false
+    }
+}
