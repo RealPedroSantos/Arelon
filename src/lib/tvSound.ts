@@ -8,6 +8,7 @@ const loading: Record<string, boolean> = {};
 
 let lastPlayTime = 0;
 const MIN_PLAY_INTERVAL = 22;
+const SOUND_VOLUME = 0.5;
 
 const PATHS = {
   keyboardKey:   '/assets/sounds/keyboard_key.wav',

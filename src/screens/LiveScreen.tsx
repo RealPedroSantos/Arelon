@@ -8,6 +8,7 @@ import type { EpgProgram } from '../api/xtream'
 import { MatchMediaRow } from '../components/MatchMediaRow'
 import type { MatchCardItem } from '../components/MatchMediaRow'
 import { setTransitioningToFullscreenUrl } from '../lib/playback'
+import { unlockAudio } from '../lib/tvSound'
 import { getShortEpg } from '../api/xtream'
 import type { Channel } from '../store'
 
