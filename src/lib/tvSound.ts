@@ -75,11 +75,11 @@ export let normalVolume = 1.2;   // 1. Sons normais (movimento, teclas do teclad
 export let clickVolume  = 3.0;   // 2. Som de clique / OK / Enter (seleção de elementos)
 
 export function setNormalVolume(v: number) {
-  normalVolume = Math.max(0, Math.min(3, v));
+  normalVolume = Math.max(0, v);
 }
 
 export function setClickVolume(v: number) {
-  clickVolume = Math.max(0, Math.min(3, v));
+  clickVolume = Math.max(0, v);
 }
 
 function getVolumeFor(name?: keyof typeof PATHS): number {

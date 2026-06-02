@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { setNormalVolume, setClickVolume, normalVolume, clickVolume, unlockAudio } from '../lib/tvSound'
+import { setNormalVolume, setClickVolume, normalVolume, clickVolume, unlockAudio, playUIMoveSound, playUIClickSound } from '../lib/tvSound'
 
 interface VolumeControlWidgetProps {
   onClose?: () => void
@@ -15,15 +15,19 @@ export function VolumeControlWidget({ onClose }: VolumeControlWidgetProps) {
   }, [])
 
   const updateNormal = (newVal: number) => {
-    const clamped = Math.max(0, Math.min(3, Math.round(newVal * 10) / 10))
-    setNormalVol(clamped)
-    setNormalVolume(clamped)
+    const val = Math.max(0, Math.round(newVal * 10) / 10)
+    setNormalVol(val)
+    setNormalVolume(val)
+    // Toca preview para ouvir o volume em tempo real
+    setTimeout(() => playUIMoveSound(), 30)
   }
 
   const updateClick = (newVal: number) => {
-    const clamped = Math.max(0, Math.min(3, Math.round(newVal * 10) / 10))
-    setClickVol(clamped)
-    setClickVolume(clamped)
+    const val = Math.max(0, Math.round(newVal * 10) / 10)
+    setClickVol(val)
+    setClickVolume(val)
+    // Toca preview para ouvir o volume em tempo real
+    setTimeout(() => playUIClickSound(), 30)
   }
 
   const reset = () => {
