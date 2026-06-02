@@ -10,13 +10,16 @@ let lastPlayTime = 0;
 const MIN_PLAY_INTERVAL = 22;
 const SOUND_VOLUME = 0.5;
 
+// Use import.meta.env.BASE_URL so paths work on both localhost and GitHub Pages (/Arelon/)
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
+
 const PATHS = {
-  keyboardKey:   '/assets/sounds/keyboard_key.wav',
-  keyboardClear: '/assets/sounds/keyboard_clear.wav',
-  keyboardEnter: '/assets/sounds/ui_select.wav',   // same Enter sound as general UI selection
-  uiMove:        '/assets/sounds/ui_move.wav',
-  uiClick:       '/assets/sounds/ui_select.wav',        // Enter/OK selection sound (user specified)
-  logout:        '/assets/sounds/logout.wav',
+  keyboardKey:   `${BASE}/assets/sounds/keyboard_key.wav`,
+  keyboardClear: `${BASE}/assets/sounds/keyboard_clear.wav`,
+  keyboardEnter: `${BASE}/assets/sounds/ui_select.wav`,
+  uiMove:        `${BASE}/assets/sounds/ui_move.wav`,
+  uiClick:       `${BASE}/assets/sounds/ui_select.wav`,
+  logout:        `${BASE}/assets/sounds/logout.wav`,
 };
 
 function getContext(): AudioContext | null {
