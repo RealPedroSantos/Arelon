@@ -31,8 +31,8 @@ export function VolumeControlWidget({ onClose }: VolumeControlWidgetProps) {
   }
 
   const reset = () => {
-    updateNormal(1.2)
-    updateClick(3.0)
+    updateNormal(0.3)
+    updateClick(4.1)
   }
 
   return (

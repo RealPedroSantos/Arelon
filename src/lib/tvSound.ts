@@ -74,8 +74,8 @@ function play(name: keyof typeof PATHS) {
 }
 
 // === CONTROLE DE VOLUME (ajustável em tempo real) ===
-export let normalVolume = 1.2;   // 1. Sons normais (movimento, teclas do teclado, limpar, sair, etc.)
-export let clickVolume  = 3.0;   // 2. Som de clique / OK / Enter (seleção de elementos)
+export let normalVolume = 0.3;   // 1. Sons normais (movimento, teclas do teclado, limpar, sair, etc.)
+export let clickVolume  = 4.1;   // 2. Som de clique / OK / Enter (seleção de elementos)
 
 export function setNormalVolume(v: number) {
   normalVolume = Math.max(0, v);
