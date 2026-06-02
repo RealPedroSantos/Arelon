@@ -265,7 +265,6 @@ export async function loadSharedAdminConfig(): Promise<SharedAdminConfig> {
 export async function saveSharedAdminConfig(config: SharedAdminConfig): Promise<SharedAdminConfig> {
   const endpoints = await getSharedConfigEndpoints()
   const payload = normalizeSharedAdminConfig({ ...config, updatedAt: nowIso() })
-  let lastError: unknown
 
   for (const endpoint of endpoints) {
     try {
@@ -279,18 +278,19 @@ export async function saveSharedAdminConfig(config: SharedAdminConfig): Promise<
         8000,
       )
 
-      if (!res.ok) {
-        lastError = new Error(`HTTP ${res.status}`)
-        continue
-      }
+      if (!res.ok) continue
 
       const saved = normalizeSharedAdminConfig(await res.json())
       writeCachedConfig(saved)
       return saved
-    } catch (error) {
-      lastError = error
+    } catch {
+      // Tenta o próximo endpoint
     }
   }
 
-  throw lastError instanceof Error ? lastError : new Error('API de configuração indisponível.')
+  // Fallback: salva apenas no localStorage quando nenhuma API está disponível
+  // (ex: GitHub Pages, file://, ou servidor offline)
+  writeCachedConfig(payload)
+  console.warn('[adminConfig] Nenhuma API disponível — config salva apenas no localStorage.')
+  return payload
 }
