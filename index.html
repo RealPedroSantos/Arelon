@@ -42,6 +42,14 @@
         if (key === "ArrowLeft" || key === "Left" || code === "ArrowLeft" || keyCode === 37) return "LEFT";
         if (key === "ArrowRight" || key === "Right" || code === "ArrowRight" || keyCode === 39) return "RIGHT";
         if (key === "Enter" || key === "OK" || key === "Select" || code === "Enter" || keyCode === 13) return "ENTER";
+        if (key === "ChannelUp" || code === "ChannelUp" || key === "PageUp" || code === "PageUp" || keyCode === 427 || keyCode === 33) return "CHANNEL_UP";
+        if (key === "ChannelDown" || code === "ChannelDown" || key === "PageDown" || code === "PageDown" || keyCode === 428 || keyCode === 34) return "CHANNEL_DOWN";
+        if (key === "MediaPlayPause" || code === "MediaPlayPause" || keyCode === 10252) return "MEDIA_PLAY_PAUSE";
+        if (key === "MediaPlay" || code === "MediaPlay" || keyCode === 415) return "MEDIA_PLAY";
+        if (key === "MediaPause" || code === "MediaPause" || keyCode === 19) return "MEDIA_PAUSE";
+        if (key === "MediaFastForward" || code === "MediaFastForward" || keyCode === 417) return "MEDIA_FAST_FORWARD";
+        if (key === "MediaRewind" || code === "MediaRewind" || keyCode === 412) return "MEDIA_REWIND";
+        if (key === "MediaStop" || code === "MediaStop" || keyCode === 413) return "MEDIA_STOP";
         if (
           key === "Backspace" || key === "Escape" || key === "Esc" ||
           key === "Back" || key === "BrowserBack" ||
@@ -64,7 +72,7 @@
         // Play sound ONLY on keydown / tizenhwkey (not on keyup) to avoid double sound
         if (type === "keydown" || type === "tizenhwkey") {
           try {
-            if (command === 'UP' || command === 'DOWN' || command === 'LEFT' || command === 'RIGHT') {
+            if (command === 'UP' || command === 'DOWN' || command === 'LEFT' || command === 'RIGHT' || command === 'CHANNEL_UP' || command === 'CHANNEL_DOWN') {
               if (window.__ArelonPlayMoveSound) window.__ArelonPlayMoveSound();
             } else if (command === 'ENTER' || command === 'BACK') {
               if (window.__ArelonPlaySelectSound) window.__ArelonPlaySelectSound();
@@ -94,6 +102,14 @@
         var command = null;
         if (event.keyName === "back" || event.keyName === "Back") command = "BACK";
         if (event.keyName === "menu" || event.keyName === "Menu") command = "MENU";
+        if (event.keyName === "ChannelUp" || event.keyName === "channelUp") command = "CHANNEL_UP";
+        if (event.keyName === "ChannelDown" || event.keyName === "channelDown") command = "CHANNEL_DOWN";
+        if (event.keyName === "MediaPlay") command = "MEDIA_PLAY";
+        if (event.keyName === "MediaPause") command = "MEDIA_PAUSE";
+        if (event.keyName === "MediaPlayPause") command = "MEDIA_PLAY_PAUSE";
+        if (event.keyName === "MediaFastForward") command = "MEDIA_FAST_FORWARD";
+        if (event.keyName === "MediaRewind") command = "MEDIA_REWIND";
+        if (event.keyName === "MediaStop") command = "MEDIA_STOP";
         if (!command) return;
         consume(event);
 
@@ -109,7 +125,7 @@
       document.addEventListener("tizenhwkey", handleTizenHwKey, true);
       try {
         if (window.tizen && window.tizen.tvinputdevice) {
-          ["Return", "Tools", "MediaPlay", "MediaPause", "MediaPlayPause", "MediaFastForward", "MediaRewind"].forEach(function (key) {
+          ["Return", "Tools", "ChannelUp", "ChannelDown", "MediaPlay", "MediaPause", "MediaPlayPause", "MediaFastForward", "MediaRewind", "MediaStop"].forEach(function (key) {
             try { window.tizen.tvinputdevice.registerKey(key); } catch (e) { }
           });
         }

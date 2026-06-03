@@ -13,10 +13,12 @@ export interface MediaCardProps extends React.ButtonHTMLAttributes<HTMLButtonEle
   logoCdn?: string
   logoPlaylist?: string
   logoPlaceholder?: string
+  focusKey?: string
   'data-focusable'?: string
 }
 
 export function MediaCard({
+  id,
   title,
   imageUrl,
   aspectRatio = 'landscape',
@@ -25,6 +27,7 @@ export function MediaCard({
   logoCdn,
   logoPlaylist,
   logoPlaceholder,
+  focusKey,
   onClick,
   className = '',
   'data-focusable': dataFocusable = 'true',
@@ -66,6 +69,8 @@ export function MediaCard({
       className={`media-card media-card--${aspectRatio}${logoTile ? ' media-card--logo' : ''}${topNumber ? ' media-card--has-top-number' : ''} ${className}`}
       onClick={onClick}
       data-focusable={dataFocusable}
+      data-media-id={id}
+      data-return-focus-key={focusKey ?? id}
       {...rest}
     >
       {topNumber && <div className="media-card-top-number">{topNumber}</div>}

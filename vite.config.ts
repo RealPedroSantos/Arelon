@@ -1,7 +1,11 @@
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 
 const sharedConfigProxyTarget = process.env.SHARED_CONFIG_PROXY_TARGET ?? 'http://localhost:8788'
+const devHttpsEnabled = process.env.ARELON_DEV_HTTPS === '1'
+const devCertDir = path.resolve(process.cwd(), 'scratch', 'dev-certs')
 
 export default defineConfig({
   base: './',
@@ -9,6 +13,12 @@ export default defineConfig({
   server: {
     host: true,
     port: 5175,
+    https: devHttpsEnabled
+      ? {
+          key: readFileSync(path.join(devCertDir, 'arelon-local.key')),
+          cert: readFileSync(path.join(devCertDir, 'arelon-local.crt')),
+        }
+      : undefined,
     proxy: {
       '/api/admin/shared-config': {
         target: sharedConfigProxyTarget,

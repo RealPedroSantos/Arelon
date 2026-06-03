@@ -20,7 +20,6 @@ const TOP_NAV_ITEMS: TopNavItem[] = [
   { label: 'Filme', screen: 'movies' },
   { label: 'Série', screen: 'series' },
   { label: 'Infantil', screen: 'kids' },
-  { label: 'Minha Lista', screen: 'mylist' },
 ]
 
 export function AppShell({ children }: AppShellProps) {

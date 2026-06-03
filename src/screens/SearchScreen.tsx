@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
 
 import { moveFocus, useRemote } from '../hooks/useRemote'
@@ -6,13 +6,12 @@ import { MediaRow } from '../components/MediaRow'
 import { MediaCard } from '../components/MediaCard'
 import { Keyboard } from '../components/Keyboard'
 import type { Channel, Movie, Series } from '../store'
+import { getLiveChannelsPage, getMoviesPage, getSeriesPage, getXtreamErrorMessage } from '../api/xtream'
+
+const SEARCH_LIMIT = 15
 
 export function SearchScreen() {
   const [query, setQuery] = useState('')
-  const liveChannels = useStore((s) => s.liveChannels)
-  const movies = useStore((s) => s.movies)
-  const series = useStore((s) => s.series)
-  
   const setSelectedDetailMedia = useStore((s) => s.setSelectedDetailMedia)
   const setCurrentMedia = useStore((s) => s.setCurrentMedia)
   const setScreen = useStore((s) => s.setScreen)
@@ -21,6 +20,11 @@ export function SearchScreen() {
   const pageRef = useRef<HTMLDivElement>(null)
   const resultsRef = useRef<HTMLDivElement>(null)
   const [browsingResults, setBrowsingResults] = useState(false)
+  const [searchResultsChannels, setSearchResultsChannels] = useState<Channel[]>([])
+  const [searchResultsMovies, setSearchResultsMovies] = useState<Movie[]>([])
+  const [searchResultsSeries, setSearchResultsSeries] = useState<Series[]>([])
+  const [searchLoading, setSearchLoading] = useState(false)
+  const [searchError, setSearchError] = useState('')
 
   function focusTopNavigation() {
     const layout = pageRef.current?.closest<HTMLElement>('.app-layout')
@@ -117,18 +121,48 @@ export function SearchScreen() {
   }
 
   const normalizedQuery = query.toLowerCase().trim()
-  
-  const searchResultsChannels = normalizedQuery 
-    ? liveChannels.filter(c => c.name.toLowerCase().includes(normalizedQuery)).slice(0, 15)
-    : []
 
-  const searchResultsMovies = normalizedQuery 
-    ? movies.filter(m => m.name.toLowerCase().includes(normalizedQuery)).slice(0, 15)
-    : []
+  useEffect(() => {
+    if (!normalizedQuery) {
+      setSearchResultsChannels([])
+      setSearchResultsMovies([])
+      setSearchResultsSeries([])
+      setSearchError('')
+      setSearchLoading(false)
+      return
+    }
 
-  const searchResultsSeries = normalizedQuery 
-    ? series.filter(s => s.name.toLowerCase().includes(normalizedQuery)).slice(0, 15)
-    : []
+    let cancelled = false
+    setSearchLoading(true)
+    setSearchError('')
+
+    const timer = window.setTimeout(() => {
+      Promise.allSettled([
+        getLiveChannelsPage(server.activeServer, server.username, server.password, { search: normalizedQuery, limit: SEARCH_LIMIT }),
+        getMoviesPage(server.activeServer, server.username, server.password, { search: normalizedQuery, limit: SEARCH_LIMIT }),
+        getSeriesPage(server.activeServer, server.username, server.password, { search: normalizedQuery, limit: SEARCH_LIMIT }),
+      ])
+        .then(([channelsResult, moviesResult, seriesResult]) => {
+          if (cancelled) return
+          setSearchResultsChannels(channelsResult.status === 'fulfilled' ? channelsResult.value.items : [])
+          setSearchResultsMovies(moviesResult.status === 'fulfilled' ? moviesResult.value.items : [])
+          setSearchResultsSeries(seriesResult.status === 'fulfilled' ? seriesResult.value.items : [])
+
+          const firstError = [channelsResult, moviesResult, seriesResult].find(
+            (result): result is PromiseRejectedResult => result.status === 'rejected',
+          )
+          setSearchError(firstError ? getXtreamErrorMessage(firstError.reason) : '')
+        })
+        .finally(() => {
+          if (!cancelled) setSearchLoading(false)
+        })
+    }, 450)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [normalizedQuery, server])
 
   const hasResults = searchResultsChannels.length > 0 || searchResultsMovies.length > 0 || searchResultsSeries.length > 0
 
@@ -163,7 +197,9 @@ export function SearchScreen() {
         </div>
 
         <div className="search-results" ref={resultsRef}>
-          {query && !hasResults && (
+          {searchLoading && <div className="status-msg">Buscando...</div>}
+          {searchError && <div className="status-msg">{searchError}</div>}
+          {query && !searchLoading && !hasResults && !searchError && (
             <div className="status-msg">Nenhum resultado encontrado para "{query}".</div>
           )}
 

@@ -1,22 +1,74 @@
 import { useEffect, useState } from 'react'
 import { useStore } from './store'
-import { authenticate } from './api/xtream'
+import {
+  authenticate,
+  getAllSeries,
+  getLiveCategories,
+  getLiveChannels,
+  getMovieCategories,
+  getMovies,
+  getSeriesCategories,
+} from './api/xtream'
 import { LoginScreen } from './screens/LoginScreen'
 import { HomeScreen } from './screens/HomeScreen'
 import { LiveScreen } from './screens/LiveScreen'
 import { MoviesScreen } from './screens/MoviesScreen'
 import { SeriesScreen } from './screens/SeriesScreen'
 import { KidsScreen } from './screens/KidsScreen'
-import { MyListScreen } from './screens/MyListScreen'
 import { PlayerScreen } from './screens/PlayerScreen'
 import { MultiViewScreen } from './screens/MultiViewScreen'
 import { MediaDetailScreen } from './screens/MediaDetailScreen'
 import { SearchScreen } from './screens/SearchScreen'
 import { AdminScreen } from './screens/AdminScreen'
 import { applySharedAdminConfig, loadSharedAdminConfig } from './lib/adminConfig'
-import { loadLogoBank } from './lib/logoResolver'
+import { loadLogoBank, resolveChannelLogoCandidates } from './lib/logoResolver'
+import { preloadImages } from './lib/imagePreload'
+import type { Category, Channel, Movie, Series } from './store'
 
 import { AppShell } from './components/AppShell'
+import { CatalogLoadingScreen } from './components/CatalogLoadingScreen'
+
+type CatalogLoadResult =
+  | { kind: 'live'; k: string; n: number; categories: Category[]; channels: Channel[] }
+  | { kind: 'movies'; k: string; n: number; categories: Category[]; items: Movie[] }
+  | { kind: 'series'; k: string; n: number; categories: Category[]; items: Series[] }
+
+function collectInitialArtwork(results: CatalogLoadResult[]): string[] {
+  const live = results.find((result) => result.kind === 'live')?.channels ?? []
+  const movies = results.find((result) => result.kind === 'movies')?.items ?? []
+  const series = results.find((result) => result.kind === 'series')?.items ?? []
+  const urls: string[] = [
+    '/assets/arelon/logo-arelon-padrao.png',
+    '/assets/arelon/fundo-imagem-app-padrao.png',
+  ]
+
+  for (let index = 0; index < 10 && (index < movies.length || index < series.length); index += 1) {
+    const movie = movies[index]
+    const item = series[index]
+    if (movie?.poster) urls.push(movie.poster)
+    if (item?.cover) urls.push(item.cover)
+  }
+
+  for (const movie of movies.slice(0, 10)) {
+    if (movie.poster) urls.push(movie.poster)
+  }
+
+  for (const item of series.slice(5, 15)) {
+    if (item.cover) urls.push(item.cover)
+  }
+
+  for (const channel of live.slice(0, 8)) {
+    urls.push(
+      ...resolveChannelLogoCandidates(channel.name, channel.logo, {
+        logoCdn: channel.logoCdn,
+        logoPlaylist: channel.logoPlaylist,
+        logoPlaceholder: channel.logoPlaceholder,
+      }).slice(0, 2),
+    )
+  }
+
+  return urls
+}
 
 export function App() {
   const isAuthenticated = useStore((s) => s.isAuthenticated)
@@ -27,10 +79,20 @@ export function App() {
   const screen = useStore((s) => s.screen)
   const currentMedia = useStore((s) => s.currentMedia)
   const selectedDetailMedia = useStore((s) => s.selectedDetailMedia)
+  const liveChannels = useStore((s) => s.liveChannels)
+  const movies = useStore((s) => s.movies)
+  const series = useStore((s) => s.series)
+  const setLive = useStore((s) => s.setLive)
+  const setMovies = useStore((s) => s.setMovies)
+  const setSeries = useStore((s) => s.setSeries)
+  const setLoading = useStore((s) => s.setLoading)
 
   const [configReady, setConfigReady] = useState(false)
   const hasStoredCredentials = configReady && !isAuthenticated && !isAdminAuthenticated && !!server?.username && !!server?.password
   const [autoLogging, setAutoLogging] = useState(false)
+  const [catalogReady, setCatalogReady] = useState(false)
+  const [catalogLoadingMessage, setCatalogLoadingMessage] = useState('Preparando catálogo...')
+  const hasCatalogContent = liveChannels.length > 0 || movies.length > 0 || series.length > 0
 
   useEffect(() => {
     fetch('/assets/logos/manifest.json')
@@ -78,6 +140,89 @@ export function App() {
     }
   }, [hasStoredCredentials, server, setAuthenticated, setServer])
 
+  useEffect(() => {
+    if (!isAuthenticated || isAdminAuthenticated || !server) {
+      setCatalogReady(false)
+      return
+    }
+
+    if (hasCatalogContent) {
+      setCatalogReady(true)
+      return
+    }
+
+    let cancelled = false
+    setCatalogReady(false)
+    setCatalogLoadingMessage('Carregando catálogo...')
+    setLoading(true)
+
+    const tasks: Array<() => Promise<CatalogLoadResult>> = [
+      async () => {
+        const [categories, channels] = await Promise.all([
+          getLiveCategories(server.activeServer, server.username, server.password),
+          getLiveChannels(server.activeServer, server.username, server.password),
+        ])
+        return { kind: 'live' as const, k: 'canais', n: channels.length, categories, channels }
+      },
+      async () => {
+        const [categories, items] = await Promise.all([
+          getMovieCategories(server.activeServer, server.username, server.password),
+          getMovies(server.activeServer, server.username, server.password),
+        ])
+        return { kind: 'movies' as const, k: 'filmes', n: items.length, categories, items }
+      },
+      async () => {
+        const [categories, items] = await Promise.all([
+          getSeriesCategories(server.activeServer, server.username, server.password),
+          getAllSeries(server.activeServer, server.username, server.password),
+        ])
+        return { kind: 'series' as const, k: 'séries', n: items.length, categories, items }
+      },
+    ]
+
+    void Promise.allSettled(tasks.map((task) => task()))
+      .then(async (results) => {
+        if (cancelled) return
+
+        const oks = results
+          .filter((result): result is PromiseFulfilledResult<CatalogLoadResult> => result.status === 'fulfilled')
+          .map((result) => result.value)
+        const fails = results.filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+        const counts = oks.map((item) => `${item.k}:${item.n}`).join(', ')
+
+        setCatalogLoadingMessage('Carregando capas...')
+        await preloadImages(collectInitialArtwork(oks), { batchSize: 8, limit: 36, timeoutMs: 4500 })
+        if (cancelled) return
+
+        for (const result of oks) {
+          if (result.kind === 'live') setLive(result.categories, result.channels)
+          else if (result.kind === 'movies') setMovies(result.categories, result.items)
+          else setSeries(result.categories, result.items)
+        }
+
+        if (fails.length > 0 || oks.reduce((total, item) => total + item.n, 0) === 0) {
+          console.error('[Arelon] carregamento inicial do catálogo', { server: server.activeServer, counts, fails })
+        }
+      })
+      .finally(() => {
+        if (cancelled) return
+        setLoading(false)
+        setCatalogReady(true)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    hasCatalogContent,
+    isAdminAuthenticated,
+    isAuthenticated,
+    server,
+    setLive,
+    setLoading,
+    setMovies,
+    setSeries,
+  ])
 
 
   let content;
@@ -101,6 +246,8 @@ export function App() {
     } else {
       content = <LoginScreen />
     }
+  } else if (!catalogReady) {
+    content = <CatalogLoadingScreen message={catalogLoadingMessage} />
   } else {
     content = (
       <AppShell>
@@ -115,7 +262,6 @@ export function App() {
               case 'movies':    return <MoviesScreen />
               case 'series':    return <SeriesScreen />
               case 'kids':      return <KidsScreen />
-              case 'mylist':    return <MyListScreen />
               case 'search':    return <SearchScreen />
               case 'multiview': return <MultiViewScreen />
               default:          return <HomeScreen />

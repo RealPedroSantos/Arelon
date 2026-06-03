@@ -42,7 +42,13 @@ npm run dev
 npm run config:api
 ```
 
-5. Para build Samsung TV (`file://`) compartilhar o mesmo Master usado no navegador, use o endpoint HTTP absoluto do deploy web:
+5. (Opcional) para subir o proxy Xtream local:
+
+```bash
+npm run arelon:api
+```
+
+6. Para build Samsung TV (`file://`) compartilhar o mesmo Master usado no navegador, use o endpoint HTTP absoluto do deploy web:
 
 ```bash
 VITE_TV_SHARED_CONFIG_ENDPOINT=http://SEU_IP:8080/api/admin/shared-config
@@ -54,6 +60,7 @@ O script `./deploy-tv.sh` prefere automaticamente `http://SEU_IP:8080/api/admin/
 
 - `npm run dev`: sobe ambiente local (frontend + API de configuração compartilhada)
 - `npm run config:api`: sobe API local de configuração compartilhada do Master
+- `npm run arelon:api`: sobe o proxy Xtream local em `ARELON_API_PORT` (padrao `8789`)
 - `npm run build`: valida TypeScript e build de produção
 - `npm run deploy:tv-live`: faz deploy live com hot-reload na TV física de testes
 - `npm run package:tizen-hosted`: gera pacote `.wgt` leve (Hosted App) para a loja Samsung
@@ -68,13 +75,13 @@ O script `./deploy-tv.sh` prefere automaticamente `http://SEU_IP:8080/api/admin/
 Desenvolvimento (Vite):
 
 ```bash
-docker compose up --build web-dev config-api
+docker compose up --build web-dev config-api arelon-api
 ```
 
 Produção (Nginx):
 
 ```bash
-docker compose up --build --force-recreate web-prod config-api
+docker compose up --build --force-recreate web-prod config-api arelon-api
 ```
 
 Mais detalhes: `docs/DOCKER-TIZEN.md`.
@@ -90,12 +97,18 @@ Mais detalhes: `docs/DOCKER-TIZEN.md`.
 ### Login Admin Master
 
 - Acessa a mesma tela de login do app
-- Credenciais Master:
-  - usuário: `realpedrosantos`
-  - senha: `21971926448`
+- Credenciais Master devem ser configuradas por ambiente:
+  - `VITE_MASTER_USERNAME`
+  - `VITE_MASTER_PASSWORD`
 - Ao apertar `Pronto` no campo de senha com essas credenciais, o app abre a página Admin Master
 - Admin configura servidor IPTV, ativa integração e valida conexão
 - Configurações de servidor/ativo/player do Master são persistidas na API compartilhada e reaproveitadas por outros usuários/dispositivos
+
+### Proxy Xtream
+
+- O frontend React/Tizen chama somente a API Arelon (`VITE_ARELON_API_BASE_URL`, padrao `https://api.arelon.com.br`) para login, categorias, listas, EPG e detalhes.
+- A API Arelon chama os servidores Xtream HTTP permitidos, aplica cache em memoria com TTL (`XTREAM_CACHE_TTL_SECONDS`) e pagina listas com `page`, `limit`, `categoryId` e `search`.
+- Streams HTTP podem continuar sendo tocados diretamente no app Samsung Tizen quando o WebView aceitar. Em navegador HTTPS, o player mostra aviso tecnico quando o browser bloquear o stream por mixed content.
 
 ## Configuração de servidor (Admin)
 
@@ -115,7 +128,8 @@ Campos suportados:
 - Senhas/tokens mascarados em logs
 - Rotas admin protegidas por sessão master
 - Validação de URL de playback (somente HTTP/HTTPS)
-- Credenciais de usuário não persistidas em texto puro no armazenamento local (ficam apenas em memória)
+- Credenciais IPTV de usuário não são persistidas em `localStorage`; ficam apenas em memória durante a sessão
+- O cache local do Master não grava senha de conta de teste IPTV
 
 ## Observações para Samsung Tizen
 

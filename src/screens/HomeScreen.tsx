@@ -1,18 +1,16 @@
-import { useEffect, useRef } from 'react'
+import { useRef } from 'react'
 import { useStore, shouldShowChannel } from '../store'
 import type { Channel, ContinueWatchingItem, Movie, Series } from '../store'
-import {
-  getLiveChannels,
-  getMovies,
-  getAllSeries,
-  getLiveCategories,
-  getMovieCategories,
-  getSeriesCategories,
-} from '../api/xtream'
-import { focusFirst, moveFocus, useRemote } from '../hooks/useRemote'
+import { moveFocus, useRemote } from '../hooks/useRemote'
+import { useMainReturnPoint } from '../hooks/useMainReturnPoint'
 import { MediaRow } from '../components/MediaRow'
 import { MediaCard } from '../components/MediaCard'
 
+function runRandomAction(actions: Array<() => void>) {
+  if (actions.length === 0) return
+  const randomIndex = Math.floor(Math.random() * actions.length)
+  actions[randomIndex]?.()
+}
 
 export function HomeScreen() {
   const server = useStore((s) => s.server)!
@@ -22,72 +20,11 @@ export function HomeScreen() {
   const movies = useStore((s) => s.movies)
   const series = useStore((s) => s.series)
   const continueWatching = useStore((s) => s.continueWatching)
-  const setLive = useStore((s) => s.setLive)
-  const setMovies = useStore((s) => s.setMovies)
-  const setSeries = useStore((s) => s.setSeries)
   const setCurrentMedia = useStore((s) => s.setCurrentMedia)
   const setSelectedDetailMedia = useStore((s) => s.setSelectedDetailMedia)
 
-  const isLoading = useStore((s) => s.isLoading)
-  const setLoading = useStore((s) => s.setLoading)
-
   const pageRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (liveChannels.length === 0 && movies.length === 0 && series.length === 0) {
-      setLoading(true)
-      const tasks: Array<() => Promise<{ k: string; n: number }>> = [
-        async () => {
-          const cats = await getLiveCategories(server.activeServer, server.username, server.password)
-          const chs = await getLiveChannels(server.activeServer, server.username, server.password)
-          setLive(cats, chs)
-          return { k: 'canais', n: chs.length }
-        },
-
-        async () => {
-          const cats = await getMovieCategories(server.activeServer, server.username, server.password)
-          const mvs = await getMovies(server.activeServer, server.username, server.password)
-          setMovies(cats, mvs)
-          return { k: 'filmes', n: mvs.length }
-        },
-
-        async () => {
-          const cats = await getSeriesCategories(server.activeServer, server.username, server.password)
-          const srs = await getAllSeries(server.activeServer, server.username, server.password)
-          setSeries(cats, srs)
-          return { k: 'séries', n: srs.length }
-        },
-      ]
-      void (async () => {
-        const results: Array<PromiseSettledResult<{ k: string; n: number }>> = []
-        for (const task of tasks) {
-          try {
-            results.push({ status: 'fulfilled', value: await task() })
-          } catch (reason: unknown) {
-            results.push({ status: 'rejected', reason })
-          }
-        }
-        return results
-      })()
-        .then((results) => {
-          const oks = results
-            .filter((r): r is PromiseFulfilledResult<{ k: string; n: number }> => r.status === 'fulfilled')
-            .map((r) => r.value)
-          const fails = results
-            .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
-            .map((r): unknown => r.reason)
-          const counts = oks.map((o) => `${o.k}:${o.n}`).join(', ')
-          const total = oks.reduce((s, o) => s + o.n, 0)
-          if (fails.length > 0 || total === 0) {
-            // Logado também para sdb dlog (console da TV)
-            console.error('[Arelon] carregamento', { server: server.activeServer, counts, fails })
-          }
-        })
-        .finally(() => setLoading(false))
-    }
-    const t = setTimeout(() => focusFirst(pageRef.current), 200)
-    return () => clearTimeout(t)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const rememberReturnPoint = useMainReturnPoint('home', pageRef)
 
   function focusTopNavigation() {
     const layout = pageRef.current?.closest<HTMLElement>('.app-layout')
@@ -112,6 +49,7 @@ export function HomeScreen() {
   })
 
   function playChannel(ch: Channel) {
+    rememberReturnPoint()
     setCurrentMedia({
       id: ch.id,
       title: ch.name,
@@ -125,6 +63,7 @@ export function HomeScreen() {
   }
 
   function playMovie(m: Movie) {
+    rememberReturnPoint()
     setSelectedDetailMedia({
       id: m.id,
       title: m.name,
@@ -138,6 +77,7 @@ export function HomeScreen() {
   }
 
   function playSeries(s: Series) {
+    rememberReturnPoint()
     setSelectedDetailMedia({
       id: s.id,
       title: s.name,
@@ -151,6 +91,7 @@ export function HomeScreen() {
   }
 
   function resumeMedia(item: ContinueWatchingItem) {
+    rememberReturnPoint()
     setCurrentMedia({ ...item, startPosition: item.position })
   }
 
@@ -161,9 +102,7 @@ export function HomeScreen() {
       ...movies.map((m) => () => playMovie(m)),
       ...series.map((s) => () => playSeries(s)),
     ]
-    if (allActions.length === 0) return
-    const randomIndex = Math.floor(Math.random() * allActions.length)
-    allActions[randomIndex]!()
+    runRandomAction(allActions)
   }
 
   const featChannels = liveChannels.slice(0, 15)
@@ -186,7 +125,7 @@ export function HomeScreen() {
 
   const featSeries = series.slice(5, 20)
   const hasAnyContent = liveChannels.length > 0 || movies.length > 0 || series.length > 0
-  const isEmpty = !isLoading && !hasAnyContent
+  const isEmpty = !hasAnyContent
 
   return (
     <div className="home-page home-page--arelon" ref={pageRef}>
@@ -206,17 +145,6 @@ export function HomeScreen() {
       </section>
 
       <div className="arelon-home-rails">
-        {isLoading && (
-          <div className="arelon-loading-block">
-            <div className="status-msg">Carregando catálogo...</div>
-            <div className="arelon-skeleton-row" aria-hidden="true">
-              {Array.from({ length: 5 }).map((_, idx) => (
-                <div className="arelon-skeleton-card" key={idx} />
-              ))}
-            </div>
-          </div>
-        )}
-
         {isEmpty && <div className="status-msg">Nenhum conteúdo disponível.</div>}
 
         {top10Combined.length > 0 && (
@@ -229,6 +157,7 @@ export function HomeScreen() {
                 imageUrl={item.type === 'movie' ? (item as Movie).poster : (item as Series).cover}
                 aspectRatio="poster"
                 topNumber={idx + 1}
+                focusKey={`home-top-${item.type}-${item.id}`}
                 onClick={() => {
                   if (item.type === 'movie') playMovie(item)
                   else playSeries(item)
@@ -247,6 +176,7 @@ export function HomeScreen() {
                 title={item.title}
                 imageUrl={item.poster || ''}
                 aspectRatio={item.type === 'live' ? 'landscape' : 'poster'}
+                focusKey={`home-continue-${item.type}-${item.id}`}
                 onClick={() => resumeMedia(item)}
               />
             ))}
@@ -262,6 +192,7 @@ export function HomeScreen() {
                 title={m.name}
                 imageUrl={m.poster || ''}
                 aspectRatio="poster"
+                focusKey={`home-movie-${m.id}`}
                 onClick={() => playMovie(m)}
               />
             ))}
@@ -277,6 +208,7 @@ export function HomeScreen() {
                 title={s.name}
                 imageUrl={s.cover || ''}
                 aspectRatio="poster"
+                focusKey={`home-series-${s.id}`}
                 onClick={() => playSeries(s)}
               />
             ))}
@@ -296,6 +228,7 @@ export function HomeScreen() {
                 logoCdn={ch.logoCdn}
                 logoPlaylist={ch.logoPlaylist}
                 logoPlaceholder={ch.logoPlaceholder}
+                focusKey={`home-live-${ch.id}`}
                 onClick={() => playChannel(ch)}
               />
             ))}

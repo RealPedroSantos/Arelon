@@ -1,0 +1,29 @@
+Arelon - Media Player for Samsung TV
+
+Description:
+Arelon is a media player application designed for Samsung Smart TVs. It allows users to browse and play live TV channels, movies, and series content through an intuitive interface optimized for TV remote control navigation.
+
+Features:
+- Live TV channels organized by categories
+- Movie catalog with Top 10 and trending sections
+- Series catalog with episodes
+- TV remote control optimized navigation
+- On-screen keyboard for login
+- Sound effects for UI interaction
+- Multi-server support for content delivery
+
+Login:
+The application requires a username and password to access content.
+Test account: pedro.santos / 498498710
+
+Navigation:
+- Use arrow keys to navigate between elements
+- Press Enter/OK to select
+- Press Back to go to previous screen
+- Use the on-screen keyboard to type username and password
+
+Technical:
+- Built with React + TypeScript
+- Tizen Web Application (wgt)
+- Target: Tizen 5.5+
+- Optimized for Samsung TV remote control

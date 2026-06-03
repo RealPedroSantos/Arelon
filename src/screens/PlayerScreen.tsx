@@ -1,5 +1,5 @@
 import Hls from 'hls.js'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '../store'
 import type { Channel } from '../store'
 import { moveFocus, useRemote } from '../hooks/useRemote'
@@ -43,6 +43,11 @@ export function PlayerScreen() {
   const btnChannelRef = useRef<HTMLButtonElement>(null)
   const lastProgressSaveRef = useRef(0)
   const seekedToStartPositionRef = useRef(false)
+  const skipNextProgressSaveRef = useRef(false)
+  const nextEpisodeCountdownRef = useRef<number | null>(null)
+  const nextEpisodePromptKeyRef = useRef<string | null>(null)
+  const showChannelListRef = useRef(false)
+  const showQualityMenuRef = useRef(false)
 
   const [showControls, setShowControls] = useState(true)
   const [isPaused, setIsPaused] = useState(false)
@@ -51,12 +56,33 @@ export function PlayerScreen() {
   const [error, setError] = useState('')
   const [buffering, setBuffering] = useState(true)
   const [infoMsg, setInfoMsg] = useState('')
+  const [nextEpisodeCountdown, setNextEpisodeCountdown] = useState<number | null>(null)
 
   const [selectedQuality, setSelectedQuality] = useState('Auto')
   const [showQualityMenu, setShowQualityMenu] = useState(false)
 
   // Channel switcher for live TV (simple name list, 5 at a time in compact dropdown)
   const [showChannelList, setShowChannelList] = useState(false)
+
+  useEffect(() => {
+    showChannelListRef.current = showChannelList
+  }, [showChannelList])
+
+  useEffect(() => {
+    showQualityMenuRef.current = showQualityMenu
+  }, [showQualityMenu])
+
+  const currentChannel = useMemo(() => liveChannels.find((ch) => ch.id === media.id), [liveChannels, media.id])
+  const categoryId = currentChannel?.categoryId
+  // Canais da mesma categoria do canal atual (para o seletor compacto e CH+/CH-)
+  const categoryChannels = useMemo(() => (
+    isLiveContent
+      ? categoryId
+        ? liveChannels.filter((ch) => ch.categoryId === categoryId)
+        : liveChannels
+      : []
+  ), [categoryId, isLiveContent, liveChannels])
+  const currentCategoryName = liveCategories.find((cat) => cat.id === categoryId)?.name || 'Canais'
 
   const close = useCallback(() => {
     const vid = videoRef.current
@@ -104,6 +130,7 @@ export function PlayerScreen() {
     hideTimer.current = setTimeout(() => {
       setShowControls((prev) => {
         if (!prev) return false
+        if (nextEpisodeCountdownRef.current !== null) return true
         const active = document.activeElement as HTMLElement
         const isDropdownFocused = active?.className?.includes('apple-quality-item') || active?.className?.includes('apple-channel-item')
         const isSeekbarFocused = active?.id === 'player-seekbar'
@@ -111,8 +138,8 @@ export function PlayerScreen() {
         return false
       })
       // Fecha listas quando os controles somem
-      if (showChannelList) setShowChannelList(false)
-      if (showQualityMenu) setShowQualityMenu(false)
+      if (showChannelListRef.current) setShowChannelList(false)
+      if (showQualityMenuRef.current) setShowQualityMenu(false)
     }, 3500)
   }, [isLiveContent])
 
@@ -151,6 +178,14 @@ export function PlayerScreen() {
     }
   }, [])
 
+  const playVideo = useCallback(() => {
+    videoRef.current?.play().catch(() => undefined)
+  }, [])
+
+  const pauseVideo = useCallback(() => {
+    videoRef.current?.pause()
+  }, [])
+
   const rewind = useCallback((amount = 10) => {
     const vid = videoRef.current
     if (vid) {
@@ -164,6 +199,48 @@ export function PlayerScreen() {
       vid.currentTime = Math.min(vid.currentTime + amount, vid.duration || Infinity)
     }
   }, [])
+
+  const isSeries = media.type === 'episode'
+  const episodeQueue = media.episodeQueue ?? []
+  const currentEpisodeIndex = episodeQueue.findIndex((item) => item.id === media.id)
+  const nextEpisodeItem = currentEpisodeIndex >= 0 ? episodeQueue[currentEpisodeIndex + 1] ?? null : null
+  const playerMeta = isLiveContent ? 'AO VIVO' : isSeries ? 'Série' : 'Filme'
+  const canSkipIntro = isSeries && currentTime < 150
+  const canNextEpisode = isSeries && !!nextEpisodeItem && duration > 0 && currentTime > duration - 120
+
+  const playNextEpisode = useCallback(() => {
+    if (!nextEpisodeItem) {
+      setInfoMsg('Não há próximo episódio disponível.')
+      setTimeout(() => setInfoMsg(''), 3000)
+      return
+    }
+
+    const vid = videoRef.current
+    const finalDuration = Number.isFinite(vid?.duration) && (vid?.duration ?? 0) > 0 ? vid!.duration : duration
+    if (Number.isFinite(finalDuration) && finalDuration > 0) {
+      updateContinueWatching(media, finalDuration, finalDuration)
+      skipNextProgressSaveRef.current = true
+    }
+
+    setInfoMsg('')
+    setNextEpisodeCountdown(null)
+    nextEpisodeCountdownRef.current = null
+    nextEpisodePromptKeyRef.current = null
+    setSelectedQuality('Auto')
+    setSharedVideoMainUrl(null)
+
+    setCurrentMedia({
+      ...media,
+      id: nextEpisodeItem.id,
+      title: `${media.seriesTitle || playerReturnDetail?.title || 'Série'} · T${nextEpisodeItem.season}E${nextEpisodeItem.episodeNum}`,
+      url: nextEpisodeItem.url,
+      type: 'episode',
+      poster: nextEpisodeItem.poster || media.poster,
+      season: nextEpisodeItem.season,
+      episodeNum: nextEpisodeItem.episodeNum,
+      startPosition: undefined,
+    })
+  }, [duration, media, nextEpisodeItem, playerReturnDetail?.title, setCurrentMedia, updateContinueWatching])
 
   useEffect(() => {
     const container = containerRef.current
@@ -317,6 +394,24 @@ export function PlayerScreen() {
       activeUrl = media.streams[selectedQuality]!
     }
 
+    if (!tizenPlayback && window.location.protocol === 'https:' && /^http:\/\//i.test(activeUrl)) {
+      showFinalPlaybackError(
+        'Este stream IPTV usa HTTP e o navegador bloqueou por mixed content. No app Samsung Tizen ele pode tocar direto; no navegador use um proxy de stream HTTPS.',
+      )
+
+      return () => {
+        clearWatchdog()
+        setSharedVideoMainUrl(null)
+        vid.pause()
+        vid.removeAttribute('src')
+        vid.load()
+        if (container.contains(vid)) {
+          container.removeChild(vid)
+        }
+        videoRef.current = null
+      }
+    }
+
     if (!tizenPlayback && selectedQuality === 'Auto' && isLiveContent && media.streams && Object.keys(media.streams).length > 1) {
       // Gerar playlist M3U8 Master (ABR) com as diferentes qualidades
       let m3u8 = "#EXTM3U\n"
@@ -352,6 +447,10 @@ export function PlayerScreen() {
       setDuration(vid.duration)
       seekToStartPosition()
     }
+    const onEnded = () => {
+      setBuffering(false)
+      if (isSeries && nextEpisodeItem) playNextEpisode()
+    }
     const onError = () => {
       // Erro de mídia no caminho nativo (no caminho hls.js o erro fatal vem por
       // Hls.Events.ERROR). Ignora abortos de carga, ex.: ao limpar a fonte no fechamento.
@@ -368,6 +467,7 @@ export function PlayerScreen() {
     vid.addEventListener('timeupdate', onTime)
     vid.addEventListener('durationchange', onDuration)
     vid.addEventListener('loadedmetadata', onLoadedMetadata)
+    vid.addEventListener('ended', onEnded)
     vid.addEventListener('error', onError)
 
     if (isAlreadyPlaying) {
@@ -383,7 +483,11 @@ export function PlayerScreen() {
     showCtrl()
 
     return () => {
-      saveProgress(true)
+      if (skipNextProgressSaveRef.current) {
+        skipNextProgressSaveRef.current = false
+      } else {
+        saveProgress(true)
+      }
       clearWatchdog()
       if (hideTimer.current) clearTimeout(hideTimer.current)
       
@@ -415,9 +519,56 @@ export function PlayerScreen() {
       vid.removeEventListener('timeupdate', onTime)
       vid.removeEventListener('durationchange', onDuration)
       vid.removeEventListener('loadedmetadata', onLoadedMetadata)
+      vid.removeEventListener('ended', onEnded)
       vid.removeEventListener('error', onError)
     }
-  }, [isLiveContent, media, selectedQuality, showCtrl, updateContinueWatching])
+  }, [isLiveContent, isSeries, media, nextEpisodeItem, playNextEpisode, selectedQuality, showCtrl, updateContinueWatching])
+
+  useEffect(() => {
+    nextEpisodeCountdownRef.current = nextEpisodeCountdown
+  }, [nextEpisodeCountdown])
+
+  useEffect(() => {
+    nextEpisodePromptKeyRef.current = null
+    setNextEpisodeCountdown(null)
+  }, [media.id])
+
+  useEffect(() => {
+    if (!canNextEpisode || !nextEpisodeItem || buffering || error || isPaused) {
+      nextEpisodePromptKeyRef.current = null
+      setNextEpisodeCountdown(null)
+      return
+    }
+
+    const promptKey = `${media.id}:${nextEpisodeItem.id}`
+    if (nextEpisodePromptKeyRef.current === promptKey) return
+    nextEpisodePromptKeyRef.current = promptKey
+
+    let remaining = 10
+    setShowControls(true)
+    if (hideTimer.current) clearTimeout(hideTimer.current)
+    setNextEpisodeCountdown(remaining)
+
+    const focusTimer = setTimeout(() => {
+      document.getElementById('player-btn-next')?.focus()
+    }, 80)
+
+    const interval = setInterval(() => {
+      remaining -= 1
+      if (remaining <= 0) {
+        clearInterval(interval)
+        setNextEpisodeCountdown(null)
+        playNextEpisode()
+        return
+      }
+      setNextEpisodeCountdown(remaining)
+    }, 1000)
+
+    return () => {
+      clearTimeout(focusTimer)
+      clearInterval(interval)
+    }
+  }, [buffering, canNextEpisode, error, isPaused, media.id, nextEpisodeItem, playNextEpisode])
 
   // Autofoco e gerenciamento do dropdown de qualidade
   useEffect(() => {
@@ -448,14 +599,17 @@ export function PlayerScreen() {
     if (showChannelList) {
       setTimeout(() => {
         const list = document.getElementById('player-channel-list')
+        const activeItem = list?.querySelector('.apple-channel-item--active') as HTMLElement
         const firstItem = list?.querySelector('.apple-channel-item') as HTMLElement
-        if (firstItem) firstItem.focus()
+        if (activeItem) activeItem.focus()
+        else if (firstItem) firstItem.focus()
       }, 60)
     }
   }, [showChannelList])
 
   function switchToChannel(ch: Channel) {
     setShowChannelList(false)
+    setSelectedQuality('Auto')
     setSharedVideoMainUrl(null) // força recarregamento
     setCurrentMedia({
       id: ch.id,
@@ -471,6 +625,25 @@ export function PlayerScreen() {
     setTimeout(() => {
       btnChannelRef.current?.focus()
     }, 80)
+  }
+
+  function switchRelativeChannel(step: 1 | -1) {
+    if (!isLiveContent || categoryChannels.length === 0) return
+
+    const currentIndex = categoryChannels.findIndex((ch) => ch.id === media.id)
+    const nextIndex = currentIndex >= 0
+      ? (currentIndex + step + categoryChannels.length) % categoryChannels.length
+      : step === 1
+        ? 0
+        : categoryChannels.length - 1
+    const nextChannel = categoryChannels[nextIndex]
+
+    if (!nextChannel || nextChannel.id === media.id) return
+
+    switchToChannel(nextChannel)
+    setShowControls(true)
+    setInfoMsg(nextChannel.name)
+    setTimeout(() => setInfoMsg(''), 2200)
   }
 
   useRemote((cmd, type) => {
@@ -496,6 +669,27 @@ export function PlayerScreen() {
         unlockAudio()
         close()
       }
+      return
+    }
+
+    if (cmd === 'CHANNEL_UP' || cmd === 'CHANNEL_DOWN') {
+      if (isLiveContent) {
+        switchRelativeChannel(cmd === 'CHANNEL_UP' ? 1 : -1)
+      } else {
+        showCtrl()
+      }
+      return
+    }
+
+    if (cmd === 'MEDIA_PLAY') {
+      if (!isLiveContent) playVideo()
+      showCtrl()
+      return
+    }
+
+    if (cmd === 'MEDIA_PAUSE') {
+      if (!isLiveContent) pauseVideo()
+      showCtrl()
       return
     }
 
@@ -529,17 +723,13 @@ export function PlayerScreen() {
           setTimeout(() => document.getElementById('player-seekbar')?.focus(), 100)
         }
       } else if (cmd === 'DOWN') {
-        if (isLiveContent) {
-          // Para live: abre a lista compacta de canais (ao lado do botão de qualidade)
-          setShowChannelList(true)
-          setShowControls(true)
-          return
-        }
         // Ao apertar para baixo, revela os controles e foca diretamente na barra de progresso (a "bola")
         showCtrl()
-        setTimeout(() => {
-          document.getElementById('player-seekbar')?.focus()
-        }, 60)
+        if (!isLiveContent) {
+          setTimeout(() => {
+            document.getElementById('player-seekbar')?.focus()
+          }, 60)
+        }
       } else {
         showCtrl()
       }
@@ -566,18 +756,12 @@ export function PlayerScreen() {
       }
     }
 
-    if (cmd === 'DOWN') {
-      if (isLiveContent) {
-        setShowChannelList(true)
-        setShowControls(true)
+    if (cmd === 'DOWN' && !isLiveContent) {
+      // Quando controles estão visíveis, DOWN foca a barra de progresso
+      const seekbar = document.getElementById('player-seekbar')
+      if (seekbar && document.activeElement !== seekbar) {
+        seekbar.focus()
         return
-      } else {
-        // Quando controles estão visíveis, DOWN foca a barra de progresso
-        const seekbar = document.getElementById('player-seekbar')
-        if (seekbar && document.activeElement !== seekbar) {
-          seekbar.focus()
-          return
-        }
       }
     }
 
@@ -596,18 +780,9 @@ export function PlayerScreen() {
   })
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0
-  const isSeries = media.type === 'episode'
-  const playerMeta = isLiveContent ? 'AO VIVO' : isSeries ? 'Série' : 'Filme'
-  const canSkipIntro = isSeries && currentTime < 150
-  const canNextEpisode = isSeries && duration > 0 && currentTime > duration - 120
 
   function skipIntro() {
     if (videoRef.current) videoRef.current.currentTime += 85
-  }
-
-  function nextEpisode() {
-    setInfoMsg('Próximo episódio disponível em breve.')
-    setTimeout(() => setInfoMsg(''), 3000)
   }
 
   function continueWatching() {
@@ -619,16 +794,6 @@ export function PlayerScreen() {
     setInfoMsg(`${label} indisponível neste conteúdo.`)
     setTimeout(() => setInfoMsg(''), 3000)
   }
-
-  const currentChannel = liveChannels.find((ch) => ch.id === media.id)
-  const categoryId = currentChannel?.categoryId
-  // Canais da mesma categoria do canal atual (para o seletor compacto)
-  const categoryChannels = isLiveContent
-    ? categoryId
-      ? liveChannels.filter((ch) => ch.categoryId === categoryId)
-      : liveChannels
-    : []
-  const currentCategoryName = liveCategories.find((cat) => cat.id === categoryId)?.name || 'Canais'
 
   return (
     <div className="player" onClick={showCtrl}>
@@ -865,9 +1030,9 @@ export function PlayerScreen() {
                     id="player-btn-next"
                     className="apple-control-pill player-btn-action"
                     data-focusable={showControls && !showQualityMenu ? "true" : "false"}
-                    onClick={nextEpisode}
+                    onClick={playNextEpisode}
                   >
-                    Próximo Episódio
+                    {nextEpisodeCountdown !== null ? `Próximo Episódio em ${nextEpisodeCountdown}s` : 'Próximo Episódio'}
                   </button>
                 ) : (
                   <button

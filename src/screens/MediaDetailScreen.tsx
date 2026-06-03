@@ -1,17 +1,28 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
-import type { Episode } from '../store'
+import type { Episode, EpisodePlaybackItem, FavoriteKind } from '../store'
 import { moveFocus, useRemote } from '../hooks/useRemote'
 import { unlockAudio } from '../lib/tvSound'
 import { getVodInfo, getSeriesInfo, getSeriesEpisodes, episodeUrl } from '../api/xtream'
 import { MediaCard } from '../components/MediaCard'
 import { MediaRow } from '../components/MediaRow'
 
+type MediaDetails = {
+  plot?: string
+  year?: string
+  rating?: string
+  director?: string
+  cast?: string
+  duration?: string
+}
+
 export function MediaDetailScreen() {
   const selectedDetailMedia = useStore((s) => s.selectedDetailMedia)
   const setSelectedDetailMedia = useStore((s) => s.setSelectedDetailMedia)
   const setCurrentMedia = useStore((s) => s.setCurrentMedia)
   const setPlayerReturnDetail = useStore((s) => s.setPlayerReturnDetail)
+  const favorites = useStore((s) => s.favorites)
+  const toggleFavorite = useStore((s) => s.toggleFavorite)
   const server = useStore((s) => s.server)
   const pageRef = useRef<HTMLDivElement>(null)
 
@@ -22,20 +33,17 @@ export function MediaDetailScreen() {
   const btnBackRef = useRef<HTMLButtonElement>(null)
 
   const isSeries = selectedDetailMedia?.type === 'episode'
+  const selectedFavoriteType: FavoriteKind | null =
+    selectedDetailMedia?.type === 'movie' ? 'movie' : selectedDetailMedia?.type === 'episode' ? 'series' : null
+  const selectedIsFavorite = !!selectedDetailMedia && !!selectedFavoriteType
+    && favorites.some((item) => item.type === selectedFavoriteType && item.id === selectedDetailMedia.id)
 
   // Episódios de séries — agora sempre carregados e exibidos inline (sem painel separado)
   const [episodes, setEpisodes] = useState<Record<string, Episode[]>>({})
   const [seasons, setSeasons] = useState<string[]>([])
   const [loadingEpisodes, setLoadingEpisodes] = useState(false)
 
-  const [details, setDetails] = useState<{
-    plot?: string
-    year?: string
-    rating?: string
-    director?: string
-    cast?: string
-    duration?: string
-  } | null>(null)
+  const [details, setDetails] = useState<MediaDetails | null>(null)
   const [loadingDetails, setLoadingDetails] = useState(false)
 
   // Background & Trailer support for pre-player screen
@@ -79,7 +87,7 @@ export function MediaDetailScreen() {
 
     const fetchDetails = async () => {
       try {
-        let newDetails: any = null
+        let newDetails: MediaDetails | null = null
         let bgImage = selectedDetailMedia.poster || ''
         let trailer: string | null = null
         let isYT = false
@@ -221,18 +229,40 @@ export function MediaDetailScreen() {
 
 
 
+  function buildEpisodeQueue(): EpisodePlaybackItem[] {
+    if (!server || !selectedDetailMedia) return []
+
+    return seasons.flatMap((seasonNum) => {
+      const list = [...(episodes[seasonNum] ?? [])].sort((a, b) => a.episodeNum - b.episodeNum)
+      return list.map((ep) => ({
+        id: ep.id,
+        title: ep.title || `Episódio ${ep.episodeNum}`,
+        url: episodeUrl(server.activeServer, server.username, server.password, ep.id, ep.ext),
+        season: ep.season,
+        episodeNum: ep.episodeNum,
+        poster: ep.image || selectedDetailMedia.poster,
+      }))
+    })
+  }
+
   function playEpisode(ep: Episode) {
     if (!server || !selectedDetailMedia) return
 
     // Salva o detalhe atual para que o BACK do player volte para cá
     setPlayerReturnDetail(selectedDetailMedia)
+    const episodeQueue = buildEpisodeQueue()
 
     setCurrentMedia({
       id: ep.id,
       title: `${selectedDetailMedia.title} · T${ep.season}E${ep.episodeNum}`,
       url: episodeUrl(server.activeServer, server.username, server.password, ep.id, ep.ext),
       type: 'episode',
-      poster: selectedDetailMedia.poster,
+      poster: ep.image || selectedDetailMedia.poster,
+      seriesId: selectedDetailMedia.id,
+      seriesTitle: selectedDetailMedia.title,
+      season: ep.season,
+      episodeNum: ep.episodeNum,
+      episodeQueue,
     })
   }
 
@@ -242,18 +272,38 @@ export function MediaDetailScreen() {
     // Salva o detalhe atual para que o BACK do player volte para cá
     setPlayerReturnDetail(selectedDetailMedia)
 
-    // Para séries: reproduz o primeiro episódio da primeira temporada disponível
-    if (selectedDetailMedia.type === 'episode' && seasons.length > 0) {
-      const firstSeason = seasons[0]!
-      const list = episodes[firstSeason] ?? []
-      if (list.length > 0 && list[0]) {
-        playEpisode(list[0])
+    if (selectedDetailMedia.type === 'episode') {
+      if (loadingEpisodes) return
+
+      const episodeQueue = buildEpisodeQueue()
+      if (episodeQueue.length > 0) {
+        const first = episodeQueue[0]!
+        const list = episodes[String(first.season)] ?? []
+        const firstEpisode = list.find((ep) => ep.id === first.id)
+        if (firstEpisode) playEpisode(firstEpisode)
         return
       }
+
+      return
     }
 
-    // Filme ou série sem episódios: reproduz direto
+    // Filme: reproduz direto
     setCurrentMedia(selectedDetailMedia)
+  }
+
+  function handleToggleFavorite() {
+    if (!selectedDetailMedia || !selectedFavoriteType) return
+
+    toggleFavorite({
+      id: selectedDetailMedia.id,
+      title: selectedDetailMedia.title,
+      type: selectedFavoriteType,
+      poster: selectedDetailMedia.poster,
+      url: selectedDetailMedia.url,
+      plot: selectedDetailMedia.plot,
+      year: selectedDetailMedia.year,
+      rating: selectedDetailMedia.rating,
+    })
   }
 
   useRemote((cmd, type) => {
@@ -296,7 +346,7 @@ export function MediaDetailScreen() {
   const castText = details?.cast || 'Não informado'
 
   return (
-    <div className="media-detail-screen" ref={pageRef}>
+    <div className={`media-detail-screen${isSeries ? ' media-detail-screen--series' : ''}`} ref={pageRef}>
       {/* Background: either a good wide image from IPTV or a playing trailer */}
       <div
         className="detail-background"
@@ -361,11 +411,16 @@ export function MediaDetailScreen() {
           </button>
           <button
             ref={btnAddRef}
-            className="detail-btn detail-btn-secondary"
+            className={`detail-btn detail-btn-secondary detail-btn-icon detail-btn-favorite${selectedIsFavorite ? ' detail-btn-favorite--active' : ''}`}
             data-focusable="true"
+            aria-label={selectedIsFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+            title={selectedIsFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
             tabIndex={focusedBtn === 1 ? 0 : -1}
+            onClick={handleToggleFavorite}
           >
-            + Minha Lista
+            <svg className="favorite-star-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 2.8 14.9 8.9 21.6 9.8 16.7 14.5 17.9 21.2 12 18 6.1 21.2 7.3 14.5 2.4 9.8 9.1 8.9 12 2.8Z" />
+            </svg>
           </button>
           <button
             ref={btnBackRef}
@@ -390,7 +445,8 @@ export function MediaDetailScreen() {
             - Navegação UP/DOWN entre temporadas usando o sistema otimizado de filas (findAdjacentMediaRowTarget + alignRowToTop)
             - Economia de processamento: a tela principal fica mais estável, só a "faixa" da temporada é trazida para a área visível
         */}
-        {isSeries && seasons.length > 0 && (
+        {isSeries && (loadingEpisodes || seasons.length > 0) && (
+          <div className="detail-episodes-region">
           <div className="live-channel-scroll detail-episodes-scroll">
             {loadingEpisodes ? (
               <div className="detail-episodes-loading">Carregando episódios...</div>
@@ -416,6 +472,7 @@ export function MediaDetailScreen() {
                 )
               })
             )}
+          </div>
           </div>
         )}
 

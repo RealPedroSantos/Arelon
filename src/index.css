@@ -657,6 +657,73 @@ textarea {
   padding: 80px 0;
 }
 
+.catalog-loading-screen {
+  position: relative;
+  width: 1920px;
+  height: 1080px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 34px;
+  background:
+    radial-gradient(circle at 50% 38%, rgba(29, 231, 255, 0.16), rgba(29, 231, 255, 0) 28%),
+    linear-gradient(180deg, #060914 0%, #000 76%);
+}
+
+.catalog-loading-logo {
+  width: 292px;
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 24px 54px rgba(29, 231, 255, 0.18));
+}
+
+.catalog-loading-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  height: 18px;
+}
+
+.catalog-loading-mark span {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: #1de7ff;
+  opacity: 0.35;
+  animation: catalog-loading-pulse 1.1s ease-in-out infinite;
+}
+
+.catalog-loading-mark span:nth-child(2) {
+  animation-delay: 0.16s;
+}
+
+.catalog-loading-mark span:nth-child(3) {
+  animation-delay: 0.32s;
+}
+
+.catalog-loading-message {
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+@keyframes catalog-loading-pulse {
+  0%,
+  100% {
+    opacity: 0.28;
+    transform: translate3d(0, 0, 0) scale(0.86);
+  }
+
+  50% {
+    opacity: 1;
+    transform: translate3d(0, -2px, 0) scale(1.12);
+  }
+}
+
 .arelon-hero {
   position: relative;
   min-height: 820px;
@@ -773,6 +840,26 @@ textarea {
 
 .catalog-content {
   padding: 156px 74px 60px;
+}
+
+.catalog-load-more-button {
+  margin: 4px 0 56px 20px;
+  padding: 18px 28px;
+  border: 2px solid rgba(29, 231, 255, 0.55);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.46);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.catalog-load-more-button:focus,
+.catalog-load-more-button:hover {
+  border-color: #1de7ff;
+  background: rgba(29, 231, 255, 0.16);
+  box-shadow: 0 0 0 4px rgba(29, 231, 255, 0.16);
+  outline: none;
 }
 
 .catalog-heading {
@@ -2391,6 +2478,55 @@ textarea {
   margin: 0 auto;
 }
 
+.live-preview-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 26px;
+}
+
+.live-favorite-button {
+  width: 64px;
+  height: 64px;
+  padding: 0;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  -webkit-transition:
+    -webkit-transform 0.15s ease-out,
+    background 0.15s,
+    border-color 0.15s,
+    box-shadow 0.15s;
+  transition:
+    transform 0.15s ease-out,
+    background 0.15s,
+    border-color 0.15s,
+    box-shadow 0.15s;
+  -webkit-transform: translate3d(0, 0, 0);
+  transform: translate3d(0, 0, 0);
+}
+
+.live-favorite-button:focus,
+.live-favorite-button:hover {
+  outline: none;
+  border-color: #1de7ff;
+  background: rgba(29, 231, 255, 0.16);
+  box-shadow: 0 18px 42px rgba(29, 231, 255, 0.22);
+  -webkit-transform: translate3d(0, 0, 0) scale(1.08);
+  transform: translate3d(0, 0, 0) scale(1.08);
+}
+
+.live-favorite-button--active {
+  color: #ffd86b;
+  border-color: rgba(255, 216, 107, 0.72);
+  background: rgba(255, 216, 107, 0.16);
+}
+
 /* ── Sports Shortcuts Bar Styles ────────────────────────────────────────── */
 .arelon-sport-shortcuts {
   display: flex;
@@ -2888,6 +3024,39 @@ body.tizen-tv .media-card:hover .media-card-inner {
   will-change: transform;
 }
 
+.detail-btn-icon {
+  width: 78px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.favorite-star-icon {
+  width: 32px;
+  height: 32px;
+  display: block;
+  color: currentColor;
+  fill: transparent;
+  stroke: currentColor;
+  stroke-width: 2.1;
+  stroke-linejoin: round;
+  transition:
+    fill 0.15s ease,
+    transform 0.15s ease;
+}
+
+.detail-btn-favorite--active {
+  color: #ffd86b;
+  background: linear-gradient(96deg, rgba(255, 216, 107, 0.2) 0%, rgba(255, 174, 0, 0.24) 100%);
+  border-color: rgba(255, 216, 107, 0.72);
+}
+
+.detail-btn-favorite--active .favorite-star-icon,
+.live-favorite-button--active .favorite-star-icon {
+  fill: currentColor;
+}
+
 .detail-btn:focus {
   outline: none;
 }
@@ -2933,6 +3102,53 @@ body.tizen-tv .media-card:hover .media-card-inner {
   color: #fff;
 }
 
+.media-detail-screen--series .detail-scroll-area {
+  overflow: hidden;
+}
+
+.media-detail-screen--series .detail-content {
+  box-sizing: border-box;
+  height: 100%;
+  margin-top: 0;
+  padding: 330px 60px 0;
+  gap: 16px;
+}
+
+.media-detail-screen--series .detail-title {
+  font-size: 56px;
+  line-height: 1;
+}
+
+.media-detail-screen--series .detail-description {
+  max-width: 900px;
+  max-height: 82px;
+  overflow: hidden;
+}
+
+.media-detail-screen--series .detail-actions {
+  margin-top: 4px;
+}
+
+.media-detail-screen--series .detail-btn {
+  height: 66px;
+  font-size: 21px;
+}
+
+.media-detail-screen--series .detail-btn-icon {
+  width: 66px;
+  padding: 0;
+}
+
+.media-detail-screen--series .favorite-star-icon {
+  width: 28px;
+  height: 28px;
+}
+
+.media-detail-screen--series .detail-credits {
+  margin-top: 0;
+  gap: 4px;
+}
+
 /* Episódios na tela de pré-player agora usam o sistema padrão de MediaRow (igual home/esportes).
    Cada temporada vira uma "faixa" (.media-row-container + .media-row).
    Isso traz automaticamente:
@@ -2945,12 +3161,35 @@ body.tizen-tv .media-card:hover .media-card-inner {
    A navegação UP/DOWN entre temporadas faz o alignRowToTop: a faixa anterior sobe e some,
    a próxima aparece alinhada no topo da área de episódios.
    O cabeçalho do pré-player (título, descrição, botões) fica acima e mais estável. */
+.detail-episodes-region {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.detail-episodes-region::before {
+  content: '';
+  position: absolute;
+  z-index: 20;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 22px;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(10, 10, 18, 0.92) 0%, rgba(10, 10, 18, 0) 100%);
+}
+
 .live-channel-scroll.detail-episodes-scroll {
-  margin-top: 32px;
-  max-height: 480px;
+  height: 100%;
+  max-height: none;
+  margin-top: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  padding-top: 18px;
   padding-right: 8px;
+  padding-bottom: 72px;
 }
 
 .detail-episodes-scroll::-webkit-scrollbar {

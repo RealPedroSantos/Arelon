@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useStore, type ServerConfig } from '../store'
-import { authenticate } from '../api/xtream'
+import { authenticate, getXtreamErrorMessage } from '../api/xtream'
 import { moveFocus, useRemote } from '../hooks/useRemote'
 import { Keyboard } from '../components/Keyboard'
 import { getServerCount } from '../lib/pool'
 
 type Field = 'username' | 'password'
 
-const MASTER_USERNAME = 'realpedrosantos'
-const MASTER_PASSWORD = '21971926448'
+const MASTER_USERNAME = (import.meta.env.VITE_MASTER_USERNAME || 'master').trim()
+const MASTER_PASSWORD = import.meta.env.VITE_MASTER_PASSWORD || 'master123'
 
 const STATES = [
   { uf: 'Todos', name: 'Todos os Estados' },
@@ -92,14 +92,15 @@ export function LoginScreen() {
 
   const handleLogin = useCallback(async () => {
     const trimmedUsername = username.trim()
+    const trimmedPassword = password.trim()
 
-    if (!trimmedUsername || !password.trim()) {
+    if (!trimmedUsername || !trimmedPassword) {
       setError('Preencha usuário e senha.')
       setActiveField('username')
       return
     }
 
-    if (trimmedUsername === MASTER_USERNAME && password === MASTER_PASSWORD) {
+    if (trimmedUsername === MASTER_USERNAME && trimmedPassword === MASTER_PASSWORD) {
       setError('')
       setAdminAuthenticated(true)
       return
@@ -108,17 +109,17 @@ export function LoginScreen() {
     setLoading(true)
     setError('')
     try {
-      const activeServerUrl = await authenticate(trimmedUsername, password.trim())
+      const activeServerUrl = await authenticate(trimmedUsername, trimmedPassword)
       if (activeServerUrl) {
-        setTempServer({ username: trimmedUsername, password, activeServer: activeServerUrl })
+        setTempServer({ username: trimmedUsername, password: trimmedPassword, activeServer: activeServerUrl })
         setShowStateModal(true)
       } else {
-        setError('Credenciais inválidas ou nenhum servidor disponível.')
+        setError('Usuário ou senha inválidos.')
         setActiveField('username')
         setPassword('')
       }
-    } catch {
-      setError('Erro de conexão. Tente novamente.')
+    } catch (error) {
+      setError(getXtreamErrorMessage(error))
       setActiveField('username')
     } finally {
       setLoading(false)

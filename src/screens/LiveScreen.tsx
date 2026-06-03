@@ -1,223 +1,64 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useStore, shouldShowChannel } from '../store'
-import { focusFirst, moveFocus, useRemote } from '../hooks/useRemote'
+import { moveFocus, useRemote } from '../hooks/useRemote'
+import { useMainReturnPoint } from '../hooks/useMainReturnPoint'
 import { MediaRow } from '../components/MediaRow'
 import { MediaCard } from '../components/MediaCard'
 import { LivePreview } from '../components/LivePreview'
 import type { EpgProgram } from '../api/xtream'
-import { MatchMediaRow } from '../components/MatchMediaRow'
-import type { MatchCardItem } from '../components/MatchMediaRow'
 import { setTransitioningToFullscreenUrl } from '../lib/playback'
 import { unlockAudio } from '../lib/tvSound'
-import { getShortEpg } from '../api/xtream'
-import type { Channel } from '../store'
+import { getLiveCategories, getLiveChannelsPage, getShortEpg } from '../api/xtream'
+import type { Channel, FavoriteItem } from '../store'
 
-const MOCK_MATCHES: Record<string, MatchCardItem[]> = {
-  futebol: [
-    {
-      id: 'f1',
-      category: 'futebol',
-      categoryLabel: 'Futebol',
-      teamA: {
-        name: 'Flamengo',
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/4/43/Flamengo_braz_logo.svg',
-      },
-      teamB: {
-        name: 'Palmeiras',
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/1/10/Palmeiras_logo.svg',
-      },
-      time: '21:30',
-      channel: {
-        name: 'Premiere',
-        url: '/player/premiere',
-      },
-    },
-    {
-      id: 'f2',
-      category: 'futebol',
-      categoryLabel: 'Futebol',
-      teamA: {
-        name: 'Botafogo',
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/c/cb/Escudo_Botafogo.png',
-      },
-      teamB: {
-        name: 'Fluminense',
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/a/ad/Fluminense_FC_escudo.png',
-      },
-      time: '18:00',
-      channel: {
-        name: 'SporTV',
-        url: '/player/sportv',
-      },
-    },
-    {
-      id: 'f3',
-      category: 'futebol',
-      categoryLabel: 'Futebol',
-      teamA: {
-        name: 'Corinthians',
-        logo: 'https://upload.wikimedia.org/wikipedia/en/5/5a/Sport_Club_Corinthians_Paulista_crest.svg',
-      },
-      teamB: {
-        name: 'São Paulo',
-        logo: 'https://upload.wikimedia.org/wikipedia/en/0/0f/Sao_Paulo_FC_crest.svg',
-      },
-      time: '16:00',
-      channel: {
-        name: 'Globo',
-        url: '/player/globo',
-      },
-    },
-  ],
-  lutas: [
-    {
-      id: 'l1',
-      category: 'lutas',
-      categoryLabel: 'Lutas & UFC',
-      teamA: {
-        name: 'Alex Poatan',
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/e/ec/UFC_logo.svg',
-      },
-      teamB: {
-        name: 'Israel Adesanya',
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/e/ec/UFC_logo.svg',
-      },
-      time: '23:00',
-      channel: {
-        name: 'Combate',
-        url: '/player/combate',
-      },
-    },
-    {
-      id: 'l2',
-      category: 'lutas',
-      categoryLabel: 'Lutas & UFC',
-      teamA: {
-        name: 'Charles do Bronx',
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/e/ec/UFC_logo.svg',
-      },
-      teamB: {
-        name: 'Islam Makhachev',
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/e/ec/UFC_logo.svg',
-      },
-      time: '22:00',
-      channel: {
-        name: 'Combate',
-        url: '/player/combate',
-      },
-    },
-  ],
-  velocidade: [
-    {
-      id: 'v1',
-      category: 'velocidade',
-      categoryLabel: 'Velocidade',
-      teamA: {
-        name: 'GP de Mônaco',
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/3/33/F1_logo.svg',
-      },
-      teamB: {
-        name: 'Corrida Principal',
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/3/33/F1_logo.svg',
-      },
-      time: '09:00',
-      channel: {
-        name: 'Band',
-        url: '/player/band',
-      },
-    },
-    {
-      id: 'v2',
-      category: 'velocidade',
-      categoryLabel: 'Velocidade',
-      teamA: {
-        name: 'Indy 500',
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/5/52/IndyCar_Series_logo.svg',
-      },
-      teamB: {
-        name: 'Indianapolis',
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/5/52/IndyCar_Series_logo.svg',
-      },
-      time: '13:00',
-      channel: {
-        name: 'BandSports',
-        url: '/player/bandsports',
-      },
-    },
-  ],
-  americanos: [
-    {
-      id: 'a1',
-      category: 'americanos',
-      categoryLabel: 'E. Americanos',
-      teamA: {
-        name: 'LA Lakers',
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/3/3c/Los_Angeles_Lakers_logo.svg',
-      },
-      teamB: {
-        name: 'Boston Celtics',
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/8/8f/Boston_Celtics.svg',
-      },
-      time: '21:00',
-      channel: {
-        name: 'ESPN',
-        url: '/player/espn',
-      },
-    },
-    {
-      id: 'a2',
-      category: 'americanos',
-      categoryLabel: 'E. Americanos',
-      teamA: {
-        name: 'Kansas City Chiefs',
-        logo: 'https://upload.wikimedia.org/wikipedia/en/e/e1/Kansas_City_Chiefs_logo.svg',
-      },
-      teamB: {
-        name: 'San Francisco 49ers',
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/3/3a/San_Francisco_49ers_logo.svg',
-      },
-      time: '20:30',
-      channel: {
-        name: 'ESPN',
-        url: '/player/espn2',
-      },
-    },
-  ],
-  geral: [
-    {
-      id: 'g1',
-      category: 'geral',
-      categoryLabel: 'Canais Gerais',
-      teamA: {
-        name: 'Brasil',
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/0/05/Flag_of_Brazil.svg',
-      },
-      teamB: {
-        name: 'Itália',
-        logo: 'https://upload.wikimedia.org/wikipedia/commons/0/03/Flag_of_Italy.svg',
-      },
-      time: '10:00',
-      channel: {
-        name: 'SporTV',
-        url: '/player/sportv2',
-      },
-    },
-  ],
+const LIVE_ROW_LIMIT = 15
+const INITIAL_LIVE_CATEGORY_COUNT = 8
+
+type LiveRowState = {
+  items: Channel[]
+  page: number
+  hasMore: boolean
+  loading: boolean
+  loaded: boolean
 }
+
+function mergeChannels(existing: Channel[], next: Channel[]): Channel[] {
+  const byId = new Map(existing.map((channel) => [channel.id, channel]))
+  for (const channel of next) byId.set(channel.id, channel)
+  return Array.from(byId.values())
+}
+
 
 export function LiveScreen({ filter = 'all' }: { filter?: 'tv' | 'esporte' | 'all' }) {
   const rawLiveChannels = useStore((s) => s.liveChannels)
   const liveCategories = useStore((s) => s.liveCategories)
   const selectedState = useStore((s) => s.selectedState)
-  const liveChannels = rawLiveChannels.filter((c) => shouldShowChannel(c.name, selectedState))
+  const favorites = useStore((s) => s.favorites)
 
   const setCurrentMedia = useStore((s) => s.setCurrentMedia)
   const setScreen = useStore((s) => s.setScreen)
+  const toggleFavorite = useStore((s) => s.toggleFavorite)
   const server = useStore((s) => s.server)!
+  const setLive = useStore((s) => s.setLive)
+  const appendLiveChannels = useStore((s) => s.appendLiveChannels)
   const pageRef = useRef<HTMLDivElement>(null)
+  const screenName = filter === 'tv' ? 'tv' : filter === 'esporte' ? 'esporte' : 'live'
+  const rememberReturnPoint = useMainReturnPoint(screenName, pageRef)
   const [previewChannel, setPreviewChannel] = useState<Channel | null>(null)
   const [epgPrograms, setEpgPrograms] = useState<EpgProgram[]>([])
   const [activeSportTab, setActiveSportTab] = useState('all')
+  const [categoryRows, setCategoryRows] = useState<Record<string, LiveRowState>>({})
+  const [visibleLiveCategoryCount, setVisibleLiveCategoryCount] = useState(INITIAL_LIVE_CATEGORY_COUNT)
+
+  const mergedLiveChannels = useMemo(() => {
+    const loadedRows = Object.values(categoryRows).flatMap((row) => row.items)
+    return mergeChannels(rawLiveChannels, loadedRows)
+  }, [categoryRows, rawLiveChannels])
+
+  const liveChannels = useMemo(
+    () => mergedLiveChannels.filter((c) => shouldShowChannel(c.name, selectedState)),
+    [mergedLiveChannels, selectedState],
+  )
 
   // Formata horário EPG (ex: "2025-06-02 14:30:00" → "14:30")
   function formatEpgTime(dateTime?: string): string {
@@ -234,9 +75,63 @@ export function LiveScreen({ filter = 'all' }: { filter?: 'tv' | 'esporte' | 'al
   }
 
   useEffect(() => {
-    const t = setTimeout(() => focusFirst(pageRef.current), 150)
-    return () => clearTimeout(t)
-  }, [])
+    if (liveCategories.length > 0) return
+    let cancelled = false
+
+    getLiveCategories(server.activeServer, server.username, server.password)
+      .then((categories) => {
+        if (!cancelled) setLive(categories, rawLiveChannels)
+      })
+      .catch((error) => console.error('[Arelon] erro ao carregar categorias ao vivo', error))
+
+    return () => {
+      cancelled = true
+    }
+  }, [liveCategories.length, rawLiveChannels, server, setLive])
+
+  const loadLiveCategoryPage = useCallback(async (categoryId: string, page = 1) => {
+    setCategoryRows((prev) => ({
+      ...prev,
+      [categoryId]: {
+        items: page > 1 ? prev[categoryId]?.items ?? [] : [],
+        page: page > 1 ? prev[categoryId]?.page ?? 0 : 0,
+        hasMore: prev[categoryId]?.hasMore ?? false,
+        loaded: prev[categoryId]?.loaded ?? false,
+        loading: true,
+      },
+    }))
+
+    try {
+      const result = await getLiveChannelsPage(server.activeServer, server.username, server.password, {
+        categoryId,
+        page,
+        limit: LIVE_ROW_LIMIT,
+      })
+      appendLiveChannels(result.items)
+      setCategoryRows((prev) => ({
+        ...prev,
+        [categoryId]: {
+          items: mergeChannels(page > 1 ? prev[categoryId]?.items ?? [] : [], result.items),
+          page: result.page,
+          hasMore: result.hasMore,
+          loading: false,
+          loaded: true,
+        },
+      }))
+    } catch (error) {
+      console.error('[Arelon] erro ao carregar canais paginados', { categoryId, page, error })
+      setCategoryRows((prev) => ({
+        ...prev,
+        [categoryId]: {
+          items: prev[categoryId]?.items ?? [],
+          page: prev[categoryId]?.page ?? 0,
+          hasMore: false,
+          loading: false,
+          loaded: true,
+        },
+      }))
+    }
+  }, [appendLiveChannels, server])
 
   // EPG (programa atual + próximo) do canal em preview no hero
   useEffect(() => {
@@ -284,6 +179,7 @@ export function LiveScreen({ filter = 'all' }: { filter?: 'tv' | 'esporte' | 'al
   })
 
   function playChannel(ch: Channel) {
+    rememberReturnPoint()
     setTransitioningToFullscreenUrl(ch.streamUrl)
     setCurrentMedia({
       id: ch.id,
@@ -304,6 +200,45 @@ export function LiveScreen({ filter = 'all' }: { filter?: 'tv' | 'esporte' | 'al
     } else {
       setPreviewChannel(ch)
     }
+  }
+
+  function getLiveFavorite(channel: Channel): Omit<FavoriteItem, 'addedAt'> {
+    return {
+      id: channel.id,
+      title: channel.name,
+      type: 'live',
+      poster: channel.logo,
+      url: channel.streamUrl,
+      isLive: true,
+      assignedServer: server.activeServer,
+      streams: channel.streams,
+    }
+  }
+
+  function handleTogglePreviewFavorite() {
+    if (!previewChannel) return
+    toggleFavorite(getLiveFavorite(previewChannel))
+  }
+
+  function playFavoriteChannel(favorite: FavoriteItem, channel?: Channel) {
+    if (channel) {
+      handleChannelClick(channel)
+      return
+    }
+    if (!favorite.url) return
+
+    rememberReturnPoint()
+    setTransitioningToFullscreenUrl(favorite.url)
+    setCurrentMedia({
+      id: favorite.id,
+      title: favorite.title,
+      url: favorite.url,
+      type: 'live',
+      poster: favorite.poster,
+      isLive: true,
+      assignedServer: favorite.assignedServer || server.activeServer,
+      streams: favorite.streams,
+    })
   }
 
   const isSports = filter === 'esporte'
@@ -366,6 +301,49 @@ export function LiveScreen({ filter = 'all' }: { filter?: 'tv' | 'esporte' | 'al
     }
 
     return false
+  }
+
+  const favoriteLiveChannels = favorites
+    .filter((item) => item.type === 'live')
+    .map((favorite) => {
+      const channel = liveChannels.find((item) => item.id === favorite.id)
+      if (!channel && !favorite.url) return null
+
+      if (channel && filter !== 'all') {
+        const categoryName = liveCategories.find((cat) => cat.id === channel.categoryId)?.name ?? ''
+        const isSportChannel = checkIsSport(channel.name, categoryName)
+        if (filter === 'esporte' && !isSportChannel) return null
+        if (filter === 'tv' && isSportChannel) return null
+      }
+
+      return { favorite, channel }
+    })
+    .filter((item): item is { favorite: FavoriteItem; channel: Channel | undefined } => item !== null)
+
+  const previewIsFavorite = !!previewChannel && favorites.some((item) => item.type === 'live' && item.id === previewChannel.id)
+
+  function renderFavoriteLiveRow() {
+    if (favoriteLiveChannels.length === 0) return null
+
+    return (
+      <MediaRow title="Canais favoritos">
+        {favoriteLiveChannels.map(({ favorite, channel }) => (
+          <MediaCard
+            key={`favorite-${favorite.id}`}
+            id={favorite.id}
+            title={channel?.name ?? favorite.title}
+            imageUrl={channel?.logo || favorite.poster || ''}
+            aspectRatio="landscape"
+            logoTile={!!channel}
+            logoCdn={channel?.logoCdn}
+            logoPlaylist={channel?.logoPlaylist}
+            logoPlaceholder={channel?.logoPlaceholder}
+            focusKey={`${screenName}-favorite-${favorite.id}`}
+            onClick={() => playFavoriteChannel(favorite, channel)}
+          />
+        ))}
+      </MediaRow>
+    )
   }
 
   // Lógica específica para Esportes
@@ -539,18 +517,6 @@ export function LiveScreen({ filter = 'all' }: { filter?: 'tv' | 'esporte' | 'al
     setActiveSportTab(id)
   }
 
-  function handleOpenMatchChannel(item: MatchCardItem) {
-    const nameLower = item.channel.name.toLowerCase()
-    const realChannel = liveChannels.find((c) => c.name.toLowerCase().includes(nameLower))
-
-    if (realChannel) {
-      playChannel(realChannel)
-    } else {
-      console.warn(`Canal ${item.channel.name} não encontrado. Redirecionando para ${item.channel.url}`)
-      window.location.assign(item.channel.url)
-    }
-  }
-
   // Filtragem das categorias padrão
   const filteredCategories = liveCategories.filter((cat) => {
     const lowerName = cat.name.toLowerCase()
@@ -561,7 +527,7 @@ export function LiveScreen({ filter = 'all' }: { filter?: 'tv' | 'esporte' | 'al
     const hasSportChannel = liveChannels.some((c) => c.categoryId === cat.id && checkIsSport(c.name, cat.name))
 
     if (filter === 'esporte') {
-      return hasSportChannel
+      return hasSportChannel || checkIsSport('', cat.name)
     }
 
     // Para a tela de TV normal (filter === 'tv'), a categoria deve ser mantida se contiver pelo menos um canal que NÃO seja de esporte.
@@ -619,6 +585,17 @@ export function LiveScreen({ filter = 'all' }: { filter?: 'tv' | 'esporte' | 'al
     if (prioA !== prioB) return prioA - prioB
     return a.name.localeCompare(b.name)
   })
+
+  const visibleSortedCategories = sortedCategories.slice(0, visibleLiveCategoryCount)
+
+  useEffect(() => {
+    for (const category of visibleSortedCategories) {
+      const row = categoryRows[category.id]
+      if (!row?.loaded && !row?.loading) {
+        void loadLiveCategoryPage(category.id, 1)
+      }
+    }
+  }, [categoryRows, loadLiveCategoryPage, visibleSortedCategories])
 
   return (
     <div className={`home-page live-page ${isSports ? 'sports-page' : ''}`} ref={pageRef}>
@@ -691,6 +668,22 @@ export function LiveScreen({ filter = 'all' }: { filter?: 'tv' | 'esporte' | 'al
                 {previewChannel ? 'Ao vivo agora' : 'Saiba o que está sendo transmitido antes de decidir assistir.'}
               </p>
             )}
+
+            {previewChannel && (
+              <div className="live-preview-actions">
+                <button
+                  className={`live-favorite-button${previewIsFavorite ? ' live-favorite-button--active' : ''}`}
+                  data-focusable="true"
+                  aria-label={previewIsFavorite ? 'Remover canal dos favoritos' : 'Adicionar canal aos favoritos'}
+                  title={previewIsFavorite ? 'Remover canal dos favoritos' : 'Adicionar canal aos favoritos'}
+                  onClick={handleTogglePreviewFavorite}
+                >
+                  <svg className="favorite-star-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 2.8 14.9 8.9 21.6 9.8 16.7 14.5 17.9 21.2 12 18 6.1 21.2 7.3 14.5 2.4 9.8 9.1 8.9 12 2.8Z" />
+                  </svg>
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -714,19 +707,7 @@ export function LiveScreen({ filter = 'all' }: { filter?: 'tv' | 'esporte' | 'al
           <div className="live-channel-scroll">
             {isSports ? (
               <>
-                {/* Fileira de Partidas Dinâmicas que se adapta à categoria selecionada */}
-                <MatchMediaRow
-                  title={`Jogos de Hoje - ${
-                    activeSportTab === 'futebol' ? 'Futebol' :
-                    activeSportTab === 'lutas' ? 'Lutas & UFC' :
-                    activeSportTab === 'velocidade' ? 'Velocidade' :
-                    activeSportTab === 'americanos' ? 'Esportes Americanos' :
-                    activeSportTab === 'geral' ? 'Canais Gerais' :
-                    'Todos os Esportes'
-                  }`}
-                  items={activeSportTab === 'all' ? Object.values(MOCK_MATCHES).flat() : (MOCK_MATCHES[activeSportTab] || [])}
-                  onOpenChannel={handleOpenMatchChannel}
-                />
+                {renderFavoriteLiveRow()}
 
                 {classifiedSports && classifiedSports.futebol.length > 0 && (
                   <div id="row-futebol">
@@ -742,6 +723,7 @@ export function LiveScreen({ filter = 'all' }: { filter?: 'tv' | 'esporte' | 'al
                           logoCdn={c.logoCdn}
                           logoPlaylist={c.logoPlaylist}
                           logoPlaceholder={c.logoPlaceholder}
+                          focusKey={`${screenName}-futebol-${c.id}`}
                           onClick={() => handleChannelClick(c)}
                         />
                       ))}
@@ -763,6 +745,7 @@ export function LiveScreen({ filter = 'all' }: { filter?: 'tv' | 'esporte' | 'al
                           logoCdn={c.logoCdn}
                           logoPlaylist={c.logoPlaylist}
                           logoPlaceholder={c.logoPlaceholder}
+                          focusKey={`${screenName}-lutas-${c.id}`}
                           onClick={() => handleChannelClick(c)}
                         />
                       ))}
@@ -784,6 +767,7 @@ export function LiveScreen({ filter = 'all' }: { filter?: 'tv' | 'esporte' | 'al
                           logoCdn={c.logoCdn}
                           logoPlaylist={c.logoPlaylist}
                           logoPlaceholder={c.logoPlaceholder}
+                          focusKey={`${screenName}-velocidade-${c.id}`}
                           onClick={() => handleChannelClick(c)}
                         />
                       ))}
@@ -805,6 +789,7 @@ export function LiveScreen({ filter = 'all' }: { filter?: 'tv' | 'esporte' | 'al
                           logoCdn={c.logoCdn}
                           logoPlaylist={c.logoPlaylist}
                           logoPlaceholder={c.logoPlaceholder}
+                          focusKey={`${screenName}-americanos-${c.id}`}
                           onClick={() => handleChannelClick(c)}
                         />
                       ))}
@@ -826,6 +811,7 @@ export function LiveScreen({ filter = 'all' }: { filter?: 'tv' | 'esporte' | 'al
                           logoCdn={c.logoCdn}
                           logoPlaylist={c.logoPlaylist}
                           logoPlaceholder={c.logoPlaceholder}
+                          focusKey={`${screenName}-geral-${c.id}`}
                           onClick={() => handleChannelClick(c)}
                         />
                       ))}
@@ -834,15 +820,19 @@ export function LiveScreen({ filter = 'all' }: { filter?: 'tv' | 'esporte' | 'al
                 )}
               </>
             ) : (
-              sortedCategories.map((cat) => {
-                const catChannels = liveChannels
+              <>
+              {renderFavoriteLiveRow()}
+
+              {visibleSortedCategories.map((cat) => {
+                const row = categoryRows[cat.id]
+                const catChannels = (row?.items ?? liveChannels)
                   .filter((c) => c.categoryId === cat.id)
                   .filter((c) => {
                     if (filter === 'all') return true
                     const isChSport = checkIsSport(c.name, cat.name)
                     return !isChSport
                   })
-                  .slice(0, 15)
+                  .slice(0, LIVE_ROW_LIMIT)
 
                 if (catChannels.length === 0) return null
                 return (
@@ -858,12 +848,35 @@ export function LiveScreen({ filter = 'all' }: { filter?: 'tv' | 'esporte' | 'al
                         logoCdn={c.logoCdn}
                         logoPlaylist={c.logoPlaylist}
                         logoPlaceholder={c.logoPlaceholder}
+                        focusKey={`${screenName}-${cat.id}-${c.id}`}
                         onClick={() => handleChannelClick(c)}
                       />
                     ))}
+                    {row?.hasMore && (
+                      <MediaCard
+                        id={`more-${cat.id}`}
+                        title={row.loading ? 'Carregando...' : 'Carregar mais'}
+                        imageUrl=""
+                        aspectRatio="landscape"
+                        focusKey={`${screenName}-more-${cat.id}`}
+                        onClick={() => {
+                          if (!row.loading) void loadLiveCategoryPage(cat.id, row.page + 1)
+                        }}
+                      />
+                    )}
                   </MediaRow>
                 )
-              })
+              })}
+              {visibleLiveCategoryCount < sortedCategories.length && (
+                <button
+                  className="catalog-load-more-button"
+                  data-focusable="true"
+                  onClick={() => setVisibleLiveCategoryCount((count) => Math.min(count + 8, sortedCategories.length))}
+                >
+                  Carregar mais categorias
+                </button>
+              )}
+              </>
             )}
           </div>
         </div>

@@ -1,13 +1,21 @@
 import Hls from 'hls.js'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useStore } from '../store'
 import type { MultiViewChannel, Channel } from '../store'
 import { focusFirst, moveFocus, useRemote } from '../hooks/useRemote'
 import { acquireServer, pickServer, rebuildUrl } from '../lib/pool'
 import { getLivePlaybackCandidates, isHlsStreamUrl, isTizenTVWebView } from '../lib/playback'
 import { Keyboard } from '../components/Keyboard'
+import { getLiveChannelsPage } from '../api/xtream'
 
 const MULTIVIEW_IGNORE_KEYWORDS = ['cliente', 'aviso', 'teste', 'suporte']
+const MULTIVIEW_CHANNEL_LIMIT = 50
+
+function mergeChannelLists(existing: Channel[], next: Channel[]): Channel[] {
+  const byId = new Map(existing.map((channel) => [channel.id, channel]))
+  for (const channel of next) byId.set(channel.id, channel)
+  return Array.from(byId.values())
+}
 
 interface TileProps {
   mv: MultiViewChannel
@@ -163,6 +171,7 @@ export function MultiViewScreen() {
   const setScreen = useStore((s) => s.setScreen)
   const liveChannels = useStore((s) => s.liveChannels)
   const liveCategories = useStore((s) => s.liveCategories)
+  const appendLiveChannels = useStore((s) => s.appendLiveChannels)
 
   const [audioChannelIndex, setAudioChannelIndex] = useState<number | null>(null)
 
@@ -172,6 +181,10 @@ export function MultiViewScreen() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategoryId, setSelectedCategoryId] = useState('all')
   const [showKeyboard, setShowKeyboard] = useState(false)
+  const [overlayChannels, setOverlayChannels] = useState<Channel[]>([])
+  const [overlayPage, setOverlayPage] = useState(1)
+  const [overlayHasMore, setOverlayHasMore] = useState(false)
+  const [overlayLoading, setOverlayLoading] = useState(false)
 
   const overlayRef = useRef<HTMLDivElement>(null)
 
@@ -194,11 +207,50 @@ export function MultiViewScreen() {
     setSearchQuery('')
     setSelectedCategoryId('all')
     setShowKeyboard(false)
+    setOverlayChannels([])
+    setOverlayPage(1)
+    setOverlayHasMore(false)
     setShowOverlay(true)
     setTimeout(() => {
       focusFirst(overlayRef.current)
     }, 100)
   }
+
+  const loadOverlayChannels = useCallback(async (page = 1) => {
+    setOverlayLoading(true)
+
+    try {
+      const result = await getLiveChannelsPage(server.activeServer, server.username, server.password, {
+        categoryId: selectedCategoryId === 'all' ? undefined : selectedCategoryId,
+        search: searchQuery.trim() || undefined,
+        page,
+        limit: MULTIVIEW_CHANNEL_LIMIT,
+      })
+
+      appendLiveChannels(result.items)
+      setOverlayChannels((current) => page > 1 ? mergeChannelLists(current, result.items) : result.items)
+      setOverlayPage(result.page)
+      setOverlayHasMore(result.hasMore)
+    } catch (error) {
+      console.error('[Arelon] erro ao carregar canais do Multi-View', error)
+      if (page === 1) {
+        setOverlayChannels(liveChannels.slice(0, MULTIVIEW_CHANNEL_LIMIT))
+        setOverlayHasMore(false)
+      }
+    } finally {
+      setOverlayLoading(false)
+    }
+  }, [appendLiveChannels, liveChannels, searchQuery, selectedCategoryId, server])
+
+  useEffect(() => {
+    if (!showOverlay) return
+
+    const timer = window.setTimeout(() => {
+      void loadOverlayChannels(1)
+    }, 250)
+
+    return () => window.clearTimeout(timer)
+  }, [loadOverlayChannels, showOverlay])
 
   const closeSelection = () => {
     setShowOverlay(false)
@@ -283,17 +335,7 @@ export function MultiViewScreen() {
     })
   }, [liveCategories])
 
-  const filteredChannels = useMemo(() => {
-    let list = liveChannels
-    if (selectedCategoryId !== 'all') {
-      list = list.filter((ch) => ch.categoryId === selectedCategoryId)
-    }
-    if (searchQuery.trim()) {
-      const norm = searchQuery.toLowerCase().trim()
-      list = list.filter((ch) => ch.name.toLowerCase().includes(norm))
-    }
-    return list.slice(0, 50) // Limite de 50 canais para renderização rápida e suave na TV
-  }, [liveChannels, selectedCategoryId, searchQuery])
+  const filteredChannels = overlayChannels
 
   return (
     <div className="mv-page">
@@ -406,28 +448,48 @@ export function MultiViewScreen() {
 
           {/* Canais (Direita) */}
           <div className="mv-overlay-chs">
-            {filteredChannels.length === 0 ? (
+            {overlayLoading && filteredChannels.length === 0 ? (
+              <div style={{ padding: '20px', color: '#888', textAlign: 'center', fontSize: '14px' }}>
+                Carregando canais...
+              </div>
+            ) : filteredChannels.length === 0 ? (
               <div style={{ padding: '20px', color: '#888', textAlign: 'center', fontSize: '14px' }}>
                 Nenhum canal encontrado
               </div>
             ) : (
-              filteredChannels.map((ch) => (
-                <button
-                  key={ch.id}
-                  className="mv-overlay-ch-item"
-                  data-focusable={showOverlay && !showKeyboard ? "true" : "false"}
-                  onClick={() => handleSelectChannel(ch)}
-                >
-                  <div className="mv-overlay-ch-logo-container">
-                    {ch.logo ? (
-                      <img src={ch.logo} alt="" className="mv-overlay-ch-logo" onError={(e) => { (e.target as HTMLElement).style.display = 'none' }} />
-                    ) : (
-                      <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#1de7ff' }}>TV</span>
-                    )}
-                  </div>
-                  <span className="mv-overlay-ch-name">{ch.name}</span>
-                </button>
-              ))
+              <>
+                {filteredChannels.map((ch) => (
+                  <button
+                    key={ch.id}
+                    className="mv-overlay-ch-item"
+                    data-focusable={showOverlay && !showKeyboard ? "true" : "false"}
+                    onClick={() => handleSelectChannel(ch)}
+                  >
+                    <div className="mv-overlay-ch-logo-container">
+                      {ch.logo ? (
+                        <img src={ch.logo} alt="" className="mv-overlay-ch-logo" onError={(e) => { (e.target as HTMLElement).style.display = 'none' }} />
+                      ) : (
+                        <span style={{ fontSize: '12px', fontWeight: 'bold', color: '#1de7ff' }}>TV</span>
+                      )}
+                    </div>
+                    <span className="mv-overlay-ch-name">{ch.name}</span>
+                  </button>
+                ))}
+                {overlayHasMore && (
+                  <button
+                    className="mv-overlay-ch-item"
+                    data-focusable={showOverlay && !showKeyboard ? "true" : "false"}
+                    onClick={() => {
+                      if (!overlayLoading) void loadOverlayChannels(overlayPage + 1)
+                    }}
+                  >
+                    <div className="mv-overlay-ch-logo-container">
+                      <span style={{ fontSize: '18px', fontWeight: 'bold', color: '#1de7ff' }}>+</span>
+                    </div>
+                    <span className="mv-overlay-ch-name">{overlayLoading ? 'Carregando...' : 'Carregar mais canais'}</span>
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>

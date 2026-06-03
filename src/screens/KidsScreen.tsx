@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useMemo, useRef } from 'react'
 import { useStore } from '../store'
 import type { Channel, Movie, Series } from '../store'
-import { focusFirst, moveFocus, useRemote } from '../hooks/useRemote'
+import { moveFocus, useRemote } from '../hooks/useRemote'
+import { useMainReturnPoint } from '../hooks/useMainReturnPoint'
 import { MediaRow } from '../components/MediaRow'
 import { MediaCard } from '../components/MediaCard'
 
@@ -38,11 +39,7 @@ export function KidsScreen() {
   const setSelectedDetailMedia = useStore((s) => s.setSelectedDetailMedia)
   const setScreen = useStore((s) => s.setScreen)
   const pageRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const t = setTimeout(() => focusFirst(pageRef.current), 150)
-    return () => clearTimeout(t)
-  }, [])
+  const rememberReturnPoint = useMainReturnPoint('kids', pageRef)
 
   function focusTopNavigation() {
     const layout = pageRef.current?.closest<HTMLElement>('.app-layout')
@@ -74,6 +71,7 @@ export function KidsScreen() {
   })
 
   function playChannel(ch: Channel) {
+    rememberReturnPoint()
     setCurrentMedia({
       id: ch.id,
       title: ch.name,
@@ -87,6 +85,7 @@ export function KidsScreen() {
   }
 
   function playMovie(m: Movie) {
+    rememberReturnPoint()
     setSelectedDetailMedia({
       id: m.id,
       title: m.name,
@@ -100,6 +99,7 @@ export function KidsScreen() {
   }
 
   function playSeries(s: Series) {
+    rememberReturnPoint()
     setSelectedDetailMedia({
       id: s.id,
       title: s.name,
@@ -162,6 +162,7 @@ export function KidsScreen() {
                 imageUrl={item.type === 'movie' ? (item as Movie).poster : (item as Series).cover}
                 aspectRatio="poster"
                 topNumber={idx + 1}
+                focusKey={`kids-top-${item.type}-${item.id}`}
                 onClick={() => {
                   if (item.type === 'movie') playMovie(item)
                   else playSeries(item)
@@ -184,6 +185,7 @@ export function KidsScreen() {
                 logoCdn={channel.logoCdn}
                 logoPlaylist={channel.logoPlaylist}
                 logoPlaceholder={channel.logoPlaceholder}
+                focusKey={`kids-live-${channel.id}`}
                 onClick={() => playChannel(channel)}
               />
             ))}
@@ -199,6 +201,7 @@ export function KidsScreen() {
                 title={movie.name}
                 imageUrl={movie.poster || ''}
                 aspectRatio="poster"
+                focusKey={`kids-movie-${movie.id}`}
                 onClick={() => playMovie(movie)}
               />
             ))}
@@ -214,6 +217,7 @@ export function KidsScreen() {
                 title={item.name}
                 imageUrl={item.cover || ''}
                 aspectRatio="poster"
+                focusKey={`kids-series-${item.id}`}
                 onClick={() => playSeries(item)}
               />
             ))}

@@ -12,6 +12,17 @@ services:
     ports:
       - "8787:8787"
 
+  arelon-api:
+    build:
+      context: .
+      target: arelon-api
+    container_name: arelon-api
+    environment:
+      - ARELON_API_PORT=8789
+      - XTREAM_CACHE_TTL_SECONDS=300
+    ports:
+      - "8789:8789"
+
   web-dev:
     build:
       context: .
@@ -19,8 +30,10 @@ services:
     container_name: vetraio-web-dev
     depends_on:
       - config-api
+      - arelon-api
     environment:
       - SHARED_CONFIG_PROXY_TARGET=http://config-api:8787
+      - VITE_ARELON_API_BASE_URL=http://localhost:8789
     ports:
       - "5175:5175"
     volumes:
@@ -35,5 +48,6 @@ services:
     container_name: vetraio-web-prod
     depends_on:
       - config-api
+      - arelon-api
     ports:
       - "8080:80"

@@ -171,15 +171,27 @@ function readCachedConfig(): SharedAdminConfig | null {
   try {
     const cached = window.localStorage.getItem(LOCAL_CACHE_KEY)
     if (!cached) return null
-    return normalizeSharedAdminConfig(JSON.parse(cached))
+    const config = normalizeSharedAdminConfig(JSON.parse(cached))
+    if (config.testAccount.password) writeCachedConfig(config)
+    return { ...config, testAccount: { ...config.testAccount, password: '' } }
   } catch {
     return null
   }
 }
 
+function sanitizeConfigForLocalCache(config: SharedAdminConfig): SharedAdminConfig {
+  return {
+    ...config,
+    testAccount: {
+      username: config.testAccount.username,
+      password: '',
+    },
+  }
+}
+
 function writeCachedConfig(config: SharedAdminConfig): void {
   try {
-    window.localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(config))
+    window.localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(sanitizeConfigForLocalCache(config)))
   } catch {
     // Cache local é apenas conveniência quando a API compartilhada está fora.
   }

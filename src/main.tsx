@@ -9,6 +9,8 @@ try {
   if (tizen && tizen.tvinputdevice) {
     const keys = [
       'Return',
+      'ChannelUp',
+      'ChannelDown',
       'MediaPlay',
       'MediaPause',
       'MediaPlayPause',
