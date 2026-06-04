@@ -4,6 +4,7 @@ import { authenticate, getXtreamErrorMessage } from '../api/xtream'
 import { moveFocus, useRemote } from '../hooks/useRemote'
 import { Keyboard } from '../components/Keyboard'
 import { getServerCount } from '../lib/pool'
+import { getDefaultSharedAdminConfig } from '../lib/adminConfig'
 
 type Field = 'username' | 'password'
 
@@ -48,8 +49,9 @@ export function LoginScreen() {
   const setAdminAuthenticated = useStore((s) => s.setAdminAuthenticated)
   const setSelectedState = useStore((s) => s.setSelectedState)
 
-  const [username, setUsername] = useState(server?.username ?? '')
-  const [password, setPassword] = useState(server?.password ?? '')
+  const testAccount = getDefaultSharedAdminConfig().testAccount
+  const [username, setUsername] = useState(server?.username ?? testAccount.username)
+  const [password, setPassword] = useState(server?.password ?? testAccount.password)
   const [activeField, setActiveField] = useState<Field>('username')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')

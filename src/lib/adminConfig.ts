@@ -78,7 +78,7 @@ export function getDefaultSharedAdminConfig(): SharedAdminConfig {
     servers,
     activeServerId: servers[0]?.id,
     playerSettings: DEFAULT_PLAYER_SETTINGS,
-    testAccount: { username: '', password: '' },
+    testAccount: { username: 'pedro.santos', password: '498498710' },
     updatedAt: new Date(0).toISOString(),
   }
 }

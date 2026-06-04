@@ -1,0 +1,85 @@
+{
+  "servers": [
+    {
+      "id": "srv_j7kspigzx",
+      "name": "http://fravub.online",
+      "baseUrl": "http://fravub.online",
+      "type": "xtream",
+      "parameters": {},
+      "isActive": true,
+      "createdAt": "2026-05-03T04:47:08.774Z",
+      "updatedAt": "2026-06-01T04:13:43.369Z"
+    },
+    {
+      "id": "srv_s2nlg134h",
+      "name": "http://mxcdnr.xyz:80",
+      "baseUrl": "http://mxcdnr.xyz:80",
+      "type": "xtream",
+      "parameters": {},
+      "isActive": true,
+      "createdAt": "2026-05-03T04:47:15.397Z",
+      "updatedAt": "2026-06-01T04:13:43.369Z"
+    },
+    {
+      "id": "srv_o9fut5gv4",
+      "name": "http://glimen.online",
+      "baseUrl": "http://glimen.online",
+      "type": "xtream",
+      "parameters": {},
+      "isActive": true,
+      "createdAt": "2026-05-03T04:47:22.677Z",
+      "updatedAt": "2026-06-01T04:13:43.369Z"
+    },
+    {
+      "id": "srv_6qna4c583",
+      "name": "http://resfcdn.online:80",
+      "baseUrl": "http://resfcdn.online:80",
+      "type": "xtream",
+      "parameters": {},
+      "isActive": true,
+      "createdAt": "2026-05-03T04:47:28.552Z",
+      "updatedAt": "2026-06-01T04:13:43.369Z"
+    },
+    {
+      "id": "srv_hr8d8t043",
+      "name": "http://ultraviracdn.online:80",
+      "baseUrl": "http://ultraviracdn.online:80",
+      "type": "xtream",
+      "parameters": {},
+      "isActive": true,
+      "createdAt": "2026-05-03T04:47:36.076Z",
+      "updatedAt": "2026-06-01T04:13:43.369Z"
+    },
+    {
+      "id": "srv_hi54vvnsk",
+      "name": "http://purolab.online:80",
+      "baseUrl": "http://purolab.online:80",
+      "type": "xtream",
+      "parameters": {},
+      "isActive": true,
+      "createdAt": "2026-05-03T04:47:42.005Z",
+      "updatedAt": "2026-06-01T04:13:43.369Z"
+    },
+    {
+      "id": "srv_akjswf9eh",
+      "name": "http://ultraviracdn.online",
+      "baseUrl": "http://ultraviracdn.online",
+      "type": "xtream",
+      "parameters": {},
+      "isActive": true,
+      "createdAt": "2026-05-03T04:47:50.156Z",
+      "updatedAt": "2026-06-01T04:13:43.369Z"
+    }
+  ],
+  "activeServerId": "srv_j7kspigzx",
+  "playerSettings": {
+    "streamTimeoutMs": 15000,
+    "maxRetryCount": 2,
+    "retryBackoffMs": 1200
+  },
+  "testAccount": {
+    "username": "pedro.santos",
+    "password": "498498710"
+  },
+  "updatedAt": "2026-06-01T04:13:43.390Z"
+}
