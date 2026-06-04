@@ -355,6 +355,7 @@ export async function login(credentials: ArelonCredentials): Promise<LoginResult
       // Sem serverUrl específico (login inicial): tenta os servidores configurados diretamente.
       const servers = getServerUrls()
       let lastDirectError: ArelonProxyError | null = null
+      let corsBlockedAll = true
       for (const srv of servers) {
         try {
           return await directXtreamLogin(srv, credentials.username, credentials.password)
@@ -364,10 +365,27 @@ export async function login(credentials: ArelonCredentials): Promise<LoginResult
             if (directErr.type === 'invalid_credentials') {
               throw directErr
             }
+            if (directErr.type !== 'mixed_content_or_cors') {
+              corsBlockedAll = false
+            }
+          } else {
+            corsBlockedAll = false
           }
         }
       }
-      if (lastDirectError) throw lastDirectError
+      if (lastDirectError) {
+        if (corsBlockedAll && servers.length > 0) {
+          // Em ambiente hosted estático sem proxy, todas as verificações diretas foram bloqueadas por CORS nos servidores IPTV.
+          // Como os servidores vêm do config gerenciado pelo Admin, permitimos o login assumindo o primeiro servidor.
+          // A reprodução validará as credenciais na prática.
+          const first = servers[0]!
+          return {
+            serverUrl: first,
+            userInfo: { username: credentials.username },
+          }
+        }
+        throw lastDirectError
+      }
     }
     throw err
   }

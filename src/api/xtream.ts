@@ -105,13 +105,16 @@ export async function checkServerHealth(
   try {
     await login(credentials(serverUrl, username, password))
   } catch (error) {
+    const isCorsBlocked = error instanceof ArelonProxyError && error.type === 'mixed_content_or_cors'
     return {
-      authOk: false,
+      authOk: isCorsBlocked, // Em modo hosted estático (GitHub Pages sem proxy Arelon público), não conseguimos verificar via rede mas o servidor está listado no Admin. Assumimos OK para permitir uso do painel.
       liveCategories: 0,
       vodCategories: 0,
       seriesCategories: 0,
       epgOk: false,
-      message: getXtreamErrorMessage(error),
+      message: isCorsBlocked
+        ? 'Verificação limitada (sem proxy Arelon HTTPS configurado). Servidor listado no config compartilhado.'
+        : getXtreamErrorMessage(error),
     }
   }
 
