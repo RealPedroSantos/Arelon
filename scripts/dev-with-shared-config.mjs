@@ -58,5 +58,5 @@ process.on('SIGTERM', () => shutdown(0));
 spawnProcess('config-api', process.execPath, [apiScriptPath]);
 spawnProcess('arelon-api', process.execPath, [arelonApiScriptPath]);
 spawnProcess('vite', process.execPath, [viteCliPath], {
-  VITE_ARELON_API_BASE_URL: process.env.VITE_ARELON_API_BASE_URL ?? 'http://localhost:8789',
+  VITE_ARELON_API_BASE_URL: process.env.VITE_ARELON_API_BASE_URL ?? '.',
 });

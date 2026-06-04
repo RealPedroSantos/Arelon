@@ -103,26 +103,69 @@ export interface EpgProgram {
   end: string
 }
 
-const DEFAULT_API_BASE_URL = 'https://api.arelon.com.br'
+const DEFAULT_API_BASE_URLS = ['.', 'https://api.arelon.com.br']
 const DEFAULT_TIMEOUT_MS = 15000
+const RETRYABLE_API_ERROR_TYPES = new Set<ArelonApiErrorType>([
+  'network_error',
+  'timeout',
+  'upstream_http_error',
+  'invalid_json',
+  'mixed_content_or_cors',
+])
 
 export class ArelonProxyError extends Error {
   readonly type: ArelonApiErrorType
+  readonly fromApiResponse: boolean
 
-  constructor(type: ArelonApiErrorType, message: string) {
+  constructor(type: ArelonApiErrorType, message: string, options: { fromApiResponse?: boolean } = {}) {
     super(message)
     this.name = 'ArelonProxyError'
     this.type = type
+    this.fromApiResponse = Boolean(options.fromApiResponse)
   }
 }
 
-function getApiBaseUrl(): string {
-  const env = import.meta.env as Record<string, string | undefined>
-  return (env.VITE_ARELON_API_BASE_URL || DEFAULT_API_BASE_URL).replace(/\/+$/, '')
+function normalizeApiBaseUrl(input: string): string {
+  const trimmed = input.trim()
+  if (!trimmed || trimmed === '.' || trimmed === './' || trimmed === '/') return '.'
+  return trimmed.replace(/\/+$/, '')
 }
 
-function resolveApiUrl(path: string): URL {
-  const base = getApiBaseUrl()
+function splitApiBaseUrls(input: string | undefined): string[] {
+  return String(input ?? '')
+    .split(',')
+    .map(normalizeApiBaseUrl)
+    .filter(Boolean)
+}
+
+function isLoopbackHostname(hostname: string): boolean {
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '[::1]'
+}
+
+function isLoopbackApiBaseUrl(base: string): boolean {
+  if (!/^https?:\/\//i.test(base)) return false
+
+  try {
+    return isLoopbackHostname(new URL(base).hostname)
+  } catch {
+    return false
+  }
+}
+
+function getApiBaseUrls(): string[] {
+  const env = import.meta.env as Record<string, string | undefined>
+  const configured = splitApiBaseUrls(env.VITE_ARELON_API_BASE_URLS || env.VITE_ARELON_API_BASE_URL)
+  const candidates = configured.length > 0 ? configured : DEFAULT_API_BASE_URLS
+  const isRemoteBrowser = window.location.protocol !== 'file:' && !isLoopbackHostname(window.location.hostname)
+  const browserSafeCandidates = isRemoteBrowser ? candidates.filter((base) => !isLoopbackApiBaseUrl(base)) : candidates
+  const finalCandidates = browserSafeCandidates.length === candidates.length
+    ? browserSafeCandidates
+    : ['.', ...browserSafeCandidates]
+
+  return [...new Set([...finalCandidates, ...DEFAULT_API_BASE_URLS].map(normalizeApiBaseUrl))]
+}
+
+function resolveApiUrl(path: string, base: string): URL {
   if (/^https?:\/\//i.test(base)) return new URL(path, `${base}/`)
   return new URL(path, window.location.origin || window.location.href)
 }
@@ -146,15 +189,24 @@ function classifyFetchFailure(url: URL, error: unknown): ArelonProxyError {
   if (error instanceof TypeError && window.location.protocol === 'https:' && url.origin !== window.location.origin) {
     return new ArelonProxyError(
       'mixed_content_or_cors',
-      'Falha ao acessar a API Arelon. Verifique CORS, DNS ou certificado HTTPS de https://api.arelon.com.br.',
+      `Falha ao acessar a API Arelon em ${url.origin}. Verifique CORS, DNS ou certificado HTTPS.`,
     )
   }
 
   return new ArelonProxyError('network_error', 'Falha de rede ao acessar a API Arelon.')
 }
 
-async function postJson<T>(path: string, body: Record<string, unknown>, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<T> {
-  const url = resolveApiUrl(path)
+function shouldTryNextApiBase(error: ArelonProxyError): boolean {
+  if (error.fromApiResponse) return false
+  return RETRYABLE_API_ERROR_TYPES.has(error.type)
+}
+
+function appendAttemptContext(error: ArelonProxyError, attempts: string[]): ArelonProxyError {
+  if (attempts.length <= 1) return error
+  return new ArelonProxyError(error.type, `${error.message} Tentativas: ${attempts.join(', ')}`)
+}
+
+async function postJsonAtUrl<T>(url: URL, body: Record<string, unknown>, timeoutMs: number): Promise<T> {
   if (isMixedContentBlocked(url)) {
     throw classifyFetchFailure(url, new TypeError('mixed content'))
   }
@@ -181,7 +233,7 @@ async function postJson<T>(path: string, body: Record<string, unknown>, timeoutM
     }
 
     if (!payload.ok) {
-      throw new ArelonProxyError(payload.type, payload.message)
+      throw new ArelonProxyError(payload.type, payload.message, { fromApiResponse: true })
     }
 
     if (!res.ok) {
@@ -195,6 +247,30 @@ async function postJson<T>(path: string, body: Record<string, unknown>, timeoutM
   } finally {
     window.clearTimeout(timer)
   }
+}
+
+async function postJson<T>(path: string, body: Record<string, unknown>, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<T> {
+  const bases = getApiBaseUrls()
+  const attempts: string[] = []
+  let lastError: ArelonProxyError | null = null
+
+  for (const base of bases) {
+    const url = resolveApiUrl(path, base)
+    attempts.push(url.origin)
+
+    try {
+      return await postJsonAtUrl<T>(url, body, timeoutMs)
+    } catch (error) {
+      if (!(error instanceof ArelonProxyError)) throw error
+      lastError = error
+      if (!shouldTryNextApiBase(error)) throw error
+    }
+  }
+
+  throw appendAttemptContext(
+    lastError ?? new ArelonProxyError('network_error', 'Nenhuma API Arelon respondeu.'),
+    [...new Set(attempts)],
+  )
 }
 
 function payload(credentials: ArelonCredentials, extra: Record<string, unknown> = {}): Record<string, unknown> {

@@ -5,7 +5,10 @@ set -e
 
 SDB="$HOME/tizen-studio/tools/sdb"
 TIZEN="$HOME/tizen-studio/tools/ide/bin/tizen"
-TV="192.168.18.78:26101"
+DEFAULT_TV_HOST="192.168.18.78"
+TV_HOST="${VETRAIO_TV_HOST:-${TV_IP:-$DEFAULT_TV_HOST}}"
+TV_PORT="${VETRAIO_TV_PORT:-26101}"
+TV="${VETRAIO_TV:-${TV_HOST}:${TV_PORT}}"
 DIR="/Users/pedrosantos/Documents/Arelon"
 APP_ID="VetraioApp.Vetraio"
 LIVE_DIR="/tmp/vetraio-live"
@@ -14,6 +17,7 @@ LIVE_PORT="${VETRAIO_LIVE_PORT:-5175}"
 LIVE_URL="http://${LOCAL_IP}:${LIVE_PORT}"
 
 echo "🔴 Arelon LIVE → Samsung TV"
+echo "📺 TV alvo: $TV"
 echo ""
 
 if [ -z "$LOCAL_IP" ]; then
@@ -56,7 +60,13 @@ $TIZEN cli-config "profiles.path=$HOME/tizen-studio-data/profile/profiles.xml"
 $TIZEN package -t wgt -s AppVetra -- "$LIVE_DIR"
 
 # Connect & install
-$SDB connect 192.168.18.78 2>/dev/null || true
+TV_DEVICE_HOST="${TV%%:*}"
+if ! $SDB connect "$TV" >/dev/null 2>&1 || ! $SDB devices | grep -Fq "$TV_DEVICE_HOST"; then
+  echo "❌ Não foi possível conectar na TV em $TV."
+  echo "   Confira se a TV está ligada, no mesmo Wi-Fi/LAN, com Developer Mode ativo e informe o IP:"
+  echo "   VETRAIO_TV_HOST=IP_DA_TV npm run deploy:tv-live"
+  exit 1
+fi
 WGT_FILE="$(ls -1t "$LIVE_DIR"/*.wgt 2>/dev/null | head -n 1)"
 if [ -z "$WGT_FILE" ]; then
   echo "❌ Não foi encontrado .wgt em $LIVE_DIR após o empacotamento."

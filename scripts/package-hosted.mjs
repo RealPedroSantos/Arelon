@@ -1,4 +1,4 @@
-import { mkdir, rm, writeFile, cp } from 'node:fs/promises';
+import { mkdir, rm, writeFile, cp, readFile, readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
@@ -6,10 +6,22 @@ import { existsSync } from 'node:fs';
 const rootDir = resolve('.');
 const buildDir = resolve(rootDir, 'build', 'tizen-hosted');
 const packageDir = resolve(rootDir, 'build', 'packages');
-const outputName = 'arelon-hosted-unsigned.wgt';
+
+const pkg = JSON.parse(await readFile(resolve(rootDir, 'package.json'), 'utf-8'));
+let version = pkg.version;
+
+const files = existsSync(packageDir) ? await readdir(packageDir) : [];
+const existing = files.filter(f => f.startsWith('arelon-hosted-') && f.endsWith('.wgt'));
+while (existing.some(f => f.includes(version))) {
+  const parts = version.split('.');
+  parts[2] = String(Number(parts[2]) + 1);
+  version = parts.join('.');
+}
+
+const outputName = `arelon-hosted-${version}.wgt`;
 const outputPath = resolve(packageDir, outputName);
 
-const PRODUCTION_URL = process.env.VITE_TV_PRODUCTION_URL || 'https://arelon-tv.web.app'; // URL padrão ou informada pelo usuário
+const PRODUCTION_URL = process.env.VITE_TV_PRODUCTION_URL || 'https://realpedrosantos.github.io/Arelon/';
 
 async function main() {
   console.log(`▶ Preparando Pacote Hosted App para a Samsung Store`);
@@ -24,7 +36,7 @@ async function main() {
 
   // 2. Cria o config.xml apontando diretamente para a URL do servidor HTTPS
   const configXmlContent = `<?xml version="1.0" encoding="UTF-8"?>
-<widget xmlns="http://www.w3.org/ns/widgets" xmlns:tizen="http://tizen.org/ns/widgets" id="http://vetraio-tv-z.app/iptv" version="1.0.8" viewmodes="maximized">
+<widget xmlns="http://www.w3.org/ns/widgets" xmlns:tizen="http://tizen.org/ns/widgets" id="http://vetraio-tv-z.app/iptv" version="${version}" viewmodes="maximized">
   <name>Arelon</name>
   <content src="${PRODUCTION_URL}" />
   <icon src="icon.png" />

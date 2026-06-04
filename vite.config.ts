@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 
 const sharedConfigProxyTarget = process.env.SHARED_CONFIG_PROXY_TARGET ?? 'http://localhost:8788'
+const arelonApiProxyTarget = process.env.ARELON_API_PROXY_TARGET ?? 'http://localhost:8789'
 const devHttpsEnabled = process.env.ARELON_DEV_HTTPS === '1'
 const devCertDir = path.resolve(process.cwd(), 'scratch', 'dev-certs')
 
@@ -22,6 +23,10 @@ export default defineConfig({
     proxy: {
       '/api/admin/shared-config': {
         target: sharedConfigProxyTarget,
+        changeOrigin: true,
+      },
+      '/api/xtream': {
+        target: arelonApiProxyTarget,
         changeOrigin: true,
       },
       '/health': {

@@ -36,6 +36,8 @@ npm install
 npm run dev
 ```
 
+Isso sobe o frontend, a API de configuração compartilhada e o proxy Xtream. O frontend chama `/api/xtream` no mesmo endereço em que foi aberto, então uma TV na rede não tenta acessar `localhost` nela mesma.
+
 4. (Opcional) para subir apenas a API de configuração compartilhada separadamente:
 
 ```bash
@@ -58,7 +60,7 @@ O script `./deploy-tv.sh` prefere automaticamente `http://SEU_IP:8080/api/admin/
 
 ## Scripts
 
-- `npm run dev`: sobe ambiente local (frontend + API de configuração compartilhada)
+- `npm run dev`: sobe ambiente local (frontend + API de configuração compartilhada + proxy Xtream)
 - `npm run config:api`: sobe API local de configuração compartilhada do Master
 - `npm run arelon:api`: sobe o proxy Xtream local em `ARELON_API_PORT` (padrao `8789`)
 - `npm run build`: valida TypeScript e build de produção
@@ -106,7 +108,9 @@ Mais detalhes: `docs/DOCKER-TIZEN.md`.
 
 ### Proxy Xtream
 
-- O frontend React/Tizen chama somente a API Arelon (`VITE_ARELON_API_BASE_URL`, padrao `https://api.arelon.com.br`) para login, categorias, listas, EPG e detalhes.
+- O frontend React/Tizen chama somente a API Arelon para login, categorias, listas, EPG e detalhes.
+- Em modo local/TV, `VITE_ARELON_API_BASE_URL=.` faz a TV chamar `/api/xtream` no mesmo host do app; o Vite/Nginx repassa para o proxy Node.
+- Em produção hosted, use `VITE_ARELON_API_BASE_URLS` para informar uma lista separada por vírgula, por exemplo `.,https://api.arelon.com.br`.
 - A API Arelon chama os servidores Xtream HTTP permitidos, aplica cache em memoria com TTL (`XTREAM_CACHE_TTL_SECONDS`) e pagina listas com `page`, `limit`, `categoryId` e `search`.
 - Streams HTTP podem continuar sendo tocados diretamente no app Samsung Tizen quando o WebView aceitar. Em navegador HTTPS, o player mostra aviso tecnico quando o browser bloquear o stream por mixed content.
 

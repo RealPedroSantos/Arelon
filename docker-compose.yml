@@ -33,7 +33,8 @@ services:
       - arelon-api
     environment:
       - SHARED_CONFIG_PROXY_TARGET=http://config-api:8787
-      - VITE_ARELON_API_BASE_URL=http://localhost:8789
+      - ARELON_API_PROXY_TARGET=http://arelon-api:8789
+      - VITE_ARELON_API_BASE_URL=.
     ports:
       - "5175:5175"
     volumes:

@@ -14,16 +14,22 @@ Para evitar restrições de CORS locais sob o protocolo `file://` e ter a maior 
    ```bash
    npm run dev
    ```
-   *Isso sobe o frontend React (Vite na porta 5175) e o backend de configuração compartilhada.*
+   *Isso sobe o frontend React (Vite na porta 5175), o backend de configuração compartilhada e o proxy Xtream.*
 
 2. **Em outro terminal, envie o app para a TV física:**
    ```bash
    npm run deploy:tv-live
    ```
-   *Este script detecta automaticamente o IP do seu Mac na rede local, gera a casca Tizen e faz o deploy direto para a TV física configurada em `192.168.18.78`.*
+   *Este script detecta automaticamente o IP do seu Mac na rede local, gera a casca Tizen e faz o deploy direto para a TV física.*
+
+   Se a TV estiver em outro IP, informe explicitamente:
+   ```bash
+   VETRAIO_TV_HOST=IP_DA_TV npm run deploy:tv-live
+   ```
 
 ### Vantagens:
 *   ⚡ **Hot-Reload (Atualização em Tempo Real):** Qualquer modificação que você salvar no código do Mac é atualizada na TV física instantaneamente.
+*   🧭 **API sem `localhost` na TV:** O app chama `/api/xtream` no mesmo endereço do Vite (`http://IP_DO_MAC:5175`), e o Vite repassa para o proxy local. Assim a TV não depende de `api.arelon.com.br` durante os testes.
 *   🛠️ **Depuração Completa:** Abra o **Google Chrome** no seu Mac e acesse `http://localhost:9222` ou `http://IP_DA_TV:9222` para abrir o **Chrome DevTools** completo da TV e debugar o console e requisições em tempo real.
 
 ---

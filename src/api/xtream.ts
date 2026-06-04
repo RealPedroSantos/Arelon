@@ -41,7 +41,10 @@ export function getXtreamErrorMessage(error: unknown): string {
       case 'invalid_credentials':
         return 'Usuario ou senha invalidos.'
       case 'network_error':
-        return 'Erro de rede ao conectar na API Arelon. Verifique internet, DNS ou servidor indisponivel.'
+        if (/servidor IPTV/i.test(error.message)) {
+          return 'Falha de rede no servidor IPTV. Tente novamente ou valide o servidor no Admin.'
+        }
+        return 'API Arelon indisponivel. No modo TV local, rode npm run dev no Mac e abra pelo IP da rede.'
       case 'timeout':
         return 'Tempo esgotado ao conectar no servidor IPTV.'
       case 'upstream_http_error':
@@ -49,7 +52,7 @@ export function getXtreamErrorMessage(error: unknown): string {
       case 'invalid_json':
         return 'O servidor IPTV retornou uma resposta invalida.'
       case 'mixed_content_or_cors':
-        return 'O navegador bloqueou a chamada por CORS ou mixed content. Use a API HTTPS da Arelon.'
+        return 'API bloqueada por CORS ou mixed content. Use o modo TV local ou uma API HTTPS ativa.'
       default:
         return error.message || 'Erro inesperado.'
     }
@@ -76,7 +79,6 @@ export async function checkServerConnection(
   serverUrl: string,
   username: string,
   password: string,
-  _timeoutMs = 8000,
 ): Promise<boolean> {
   try {
     await login(credentials(serverUrl, username, password))

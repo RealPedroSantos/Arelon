@@ -287,6 +287,11 @@ async function fetchXtream(serverUrl, credentials, action, params = {}) {
   return await fetchJsonWithTimeout(xtreamUrl(serverUrl, credentials.username, credentials.password, action, params));
 }
 
+function isAuthHttpError(error) {
+  const apiError = toApiError(error);
+  return apiError.type === 'upstream_http_error' && (apiError.details?.upstreamStatus === 401 || apiError.details?.upstreamStatus === 403);
+}
+
 function streamUrl(serverUrl, username, password, kind, id, ext = '') {
   const u = encodeURIComponent(username);
   const p = encodeURIComponent(password);
@@ -535,7 +540,16 @@ function cleanUserInfo(raw) {
 
 async function validateLoginOnServer(serverUrl, credentials) {
   const key = cacheKey(['xtream', serverUrl, credentialHash(credentials.username, credentials.password), 'login']);
-  const raw = await withCache(key, async () => await fetchXtream(serverUrl, credentials, undefined), 60);
+  let raw;
+
+  try {
+    raw = await withCache(key, async () => await fetchXtream(serverUrl, credentials, undefined), 60);
+  } catch (error) {
+    if (isAuthHttpError(error)) {
+      throw new ApiError('invalid_credentials', 'Usuario ou senha IPTV invalidos.', 401);
+    }
+    throw error;
+  }
 
   if (!authOk(raw)) {
     throw new ApiError('invalid_credentials', 'Usuario ou senha IPTV invalidos.', 401);
