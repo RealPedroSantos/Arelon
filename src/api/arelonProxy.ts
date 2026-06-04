@@ -1,4 +1,5 @@
 import type { Category, Channel, Episode, Movie, Series } from '../store'
+import { getServerUrls } from '../lib/pool'
 
 export type ArelonApiErrorType =
   | 'invalid_credentials'
@@ -298,8 +299,78 @@ async function postList<T>(path: string, credentials: ArelonCredentials, page?: 
   }
 }
 
+async function directXtreamLogin(serverUrl: string, username: string, password: string): Promise<LoginResult> {
+  const base = serverUrl.replace(/\/+$/, '')
+  const url = `${base}/player_api.php?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`
+
+  let res: Response
+  try {
+    res = await fetch(url, { method: 'GET', cache: 'no-store' })
+  } catch (fetchErr) {
+    // CORS or network block on direct call — surface as mixed/cors so caller can decide
+    throw new ArelonProxyError('mixed_content_or_cors', 'Falha na conexão direta ao servidor IPTV (possível CORS ou mixed content).')
+  }
+
+  if (!res.ok) {
+    if (res.status === 401 || res.status === 403) {
+      throw new ArelonProxyError('invalid_credentials', 'Usuario ou senha invalidos.', { fromApiResponse: true })
+    }
+    throw new ArelonProxyError('upstream_http_error', `Servidor IPTV respondeu HTTP ${res.status}.`)
+  }
+
+  let data: any
+  try {
+    data = await res.json()
+  } catch {
+    throw new ArelonProxyError('invalid_json', 'O servidor IPTV retornou uma resposta invalida.')
+  }
+
+  const auth = data?.user_info?.auth
+  if (auth !== 1 && auth !== '1') {
+    throw new ArelonProxyError('invalid_credentials', 'Usuario ou senha invalidos.', { fromApiResponse: true })
+  }
+
+  return {
+    serverUrl: base,
+    userInfo: {
+      username: data?.user_info?.username,
+      status: data?.user_info?.status,
+      expDate: data?.user_info?.exp_date,
+      activeCons: data?.user_info?.active_cons,
+      maxConnections: data?.user_info?.max_connections,
+    },
+  }
+}
+
 export async function login(credentials: ArelonCredentials): Promise<LoginResult> {
-  return await postData<LoginResult>('/api/xtream/login', credentials)
+  try {
+    return await postData<LoginResult>('/api/xtream/login', credentials)
+  } catch (err) {
+    if (err instanceof ArelonProxyError && (err.type === 'mixed_content_or_cors' || err.type === 'network_error')) {
+      // Fallback direto para ambientes static hosted (GitHub Pages) ou quando a API Arelon proxy não está disponível via HTTPS.
+      if (credentials.serverUrl) {
+        return await directXtreamLogin(credentials.serverUrl, credentials.username, credentials.password)
+      }
+
+      // Sem serverUrl específico (login inicial): tenta os servidores configurados diretamente.
+      const servers = getServerUrls()
+      let lastDirectError: ArelonProxyError | null = null
+      for (const srv of servers) {
+        try {
+          return await directXtreamLogin(srv, credentials.username, credentials.password)
+        } catch (directErr) {
+          if (directErr instanceof ArelonProxyError) {
+            lastDirectError = directErr
+            if (directErr.type === 'invalid_credentials') {
+              throw directErr
+            }
+          }
+        }
+      }
+      if (lastDirectError) throw lastDirectError
+    }
+    throw err
+  }
 }
 
 export async function getLiveCategories(credentials: ArelonCredentials): Promise<Category[]> {

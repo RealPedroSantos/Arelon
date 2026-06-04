@@ -175,7 +175,12 @@ export async function getShortEpg(
 }
 
 export async function getLiveCategories(serverUrl: string, username: string, password: string): Promise<Category[]> {
-  return await proxyLiveCategories(credentials(serverUrl, username, password))
+  try {
+    return await proxyLiveCategories(credentials(serverUrl, username, password))
+  } catch (e) {
+    if (e instanceof ArelonProxyError && e.type === 'mixed_content_or_cors') return []
+    throw e
+  }
 }
 
 export async function getLiveChannelsPage(
@@ -202,7 +207,12 @@ export async function getLiveChannels(
 }
 
 export async function getMovieCategories(serverUrl: string, username: string, password: string): Promise<Category[]> {
-  return await getVodCategories(credentials(serverUrl, username, password))
+  try {
+    return await getVodCategories(credentials(serverUrl, username, password))
+  } catch (e) {
+    if (e instanceof ArelonProxyError && e.type === 'mixed_content_or_cors') return []
+    throw e
+  }
 }
 
 export async function getMoviesPage(
@@ -229,7 +239,12 @@ export async function getMovies(
 }
 
 export async function getSeriesCategories(serverUrl: string, username: string, password: string): Promise<Category[]> {
-  return await proxySeriesCategories(credentials(serverUrl, username, password))
+  try {
+    return await proxySeriesCategories(credentials(serverUrl, username, password))
+  } catch (e) {
+    if (e instanceof ArelonProxyError && e.type === 'mixed_content_or_cors') return []
+    throw e
+  }
 }
 
 export async function getSeriesPage(
