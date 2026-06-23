@@ -104,6 +104,33 @@ export interface EpgProgram {
   end: string
 }
 
+export interface SportsCalendarTeam {
+  name: string
+  logo?: string
+}
+
+export interface SportsCalendarEvent {
+  id: string
+  category: string
+  categoryLabel: string
+  leagueLabel: string
+  name: string
+  teamA: SportsCalendarTeam
+  teamB?: SportsCalendarTeam
+  startTime: string
+  status: 'scheduled' | 'live' | 'final' | 'canceled'
+  statusLabel: string
+  venue?: string
+  broadcasts?: string[]
+  source: string
+}
+
+export interface SportsCalendarResponse {
+  updatedAt: string
+  source: string
+  items: SportsCalendarEvent[]
+}
+
 const DEFAULT_API_BASE_URLS = ['.', 'https://api.arelon.com.br']
 const DEFAULT_TIMEOUT_MS = 15000
 const RETRYABLE_API_ERROR_TYPES = new Set<ArelonApiErrorType>([
@@ -274,6 +301,71 @@ async function postJson<T>(path: string, body: Record<string, unknown>, timeoutM
   )
 }
 
+async function getJsonAtUrl<T>(url: URL, timeoutMs: number): Promise<T> {
+  if (isMixedContentBlocked(url)) {
+    throw classifyFetchFailure(url, new TypeError('mixed content'))
+  }
+
+  const controller = new AbortController()
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const res = await fetch(url.toString(), {
+      method: 'GET',
+      cache: 'no-store',
+      signal: controller.signal,
+    })
+
+    const text = await res.text()
+    let payload: ApiOkResponse<T> | ApiErrorResponse
+
+    try {
+      payload = JSON.parse(text) as ApiOkResponse<T> | ApiErrorResponse
+    } catch {
+      throw new ArelonProxyError('invalid_json', 'A API Arelon retornou uma resposta que nao e JSON valido.')
+    }
+
+    if (!payload.ok) {
+      throw new ArelonProxyError(payload.type, payload.message, { fromApiResponse: true })
+    }
+
+    if (!res.ok) {
+      throw new ArelonProxyError('upstream_http_error', `A API Arelon respondeu HTTP ${res.status}.`)
+    }
+
+    return payload.data
+  } catch (error) {
+    if (error instanceof ArelonProxyError) throw error
+    throw classifyFetchFailure(url, error)
+  } finally {
+    window.clearTimeout(timer)
+  }
+}
+
+async function getJson<T>(path: string, timeoutMs = DEFAULT_TIMEOUT_MS): Promise<T> {
+  const bases = getApiBaseUrls()
+  const attempts: string[] = []
+  let lastError: ArelonProxyError | null = null
+
+  for (const base of bases) {
+    const url = resolveApiUrl(path, base)
+    attempts.push(url.origin)
+
+    try {
+      return await getJsonAtUrl<T>(url, timeoutMs)
+    } catch (error) {
+      if (!(error instanceof ArelonProxyError)) throw error
+      lastError = error
+      if (!shouldTryNextApiBase(error)) throw error
+    }
+  }
+
+  throw appendAttemptContext(
+    lastError ?? new ArelonProxyError('network_error', 'Nenhuma API Arelon respondeu.'),
+    [...new Set(attempts)],
+  )
+}
+
 function payload(credentials: ArelonCredentials, extra: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     serverUrl: credentials.serverUrl,
@@ -391,6 +483,15 @@ export async function login(credentials: ArelonCredentials): Promise<LoginResult
   }
 }
 
+export async function getSportsCalendar(options: { days?: number; limit?: number } = {}): Promise<SportsCalendarResponse> {
+  const params = new URLSearchParams()
+  if (options.days) params.set('days', String(options.days))
+  if (options.limit) params.set('limit', String(options.limit))
+
+  const query = params.toString()
+  return await getJson<SportsCalendarResponse>(`/api/sports/calendar${query ? `?${query}` : ''}`, 12000)
+}
+
 export async function getLiveCategories(credentials: ArelonCredentials): Promise<Category[]> {
   const data = await postData<{ items: Category[] }>('/api/xtream/live/categories', credentials)
   return data.items
@@ -433,6 +534,120 @@ export async function getShortEpg(credentials: ArelonCredentials, streamId: stri
 
 export function toCredentials(serverUrl: string | undefined, username: string, password: string): ArelonCredentials {
   return { serverUrl, username, password }
+}
+
+// ---------------------------------------------------------------------------
+// Direct Xtream API — fallback quando o proxy Arelon não está disponível
+// ---------------------------------------------------------------------------
+
+async function directXtreamGet<T>(serverUrl: string, params: Record<string, string>): Promise<T> {
+  const base = serverUrl.replace(/\/+$/, '')
+  const url = `${base}/player_api.php?${new URLSearchParams(params).toString()}`
+  let parsed: URL
+  try { parsed = new URL(url) } catch { throw new ArelonProxyError('network_error', 'URL do servidor IPTV inválida.') }
+
+  if (isMixedContentBlocked(parsed)) {
+    throw new ArelonProxyError('mixed_content_or_cors', 'Mixed content: página HTTPS não pode chamar servidor IPTV HTTP diretamente.')
+  }
+
+  const controller = new AbortController()
+  const timer = window.setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS)
+
+  try {
+    const res = await fetch(url, { method: 'GET', cache: 'no-store', signal: controller.signal })
+    if (!res.ok) throw new ArelonProxyError('upstream_http_error', `Servidor IPTV respondeu HTTP ${res.status}.`)
+    return await res.json() as T
+  } catch (error) {
+    if (error instanceof ArelonProxyError) throw error
+    throw classifyFetchFailure(parsed, error)
+  } finally {
+    window.clearTimeout(timer)
+  }
+}
+
+function mapRawCategory(raw: Record<string, unknown>): Category {
+  return { id: String(raw.category_id ?? ''), name: String(raw.category_name ?? '') }
+}
+
+function mapRawChannel(raw: Record<string, unknown>, serverUrl: string, username: string, password: string): Channel {
+  const id = String(raw.stream_id ?? '')
+  const base = serverUrl.replace(/\/+$/, '')
+  const u = encodeURIComponent(username)
+  const p = encodeURIComponent(password)
+  const logo = String(raw.stream_icon ?? '')
+  return {
+    id,
+    name: String(raw.name ?? ''),
+    logo,
+    logoPlaylist: logo || undefined,
+    categoryId: String(raw.category_id ?? ''),
+    streamUrl: `${base}/live/${u}/${p}/${id}.m3u8`,
+  }
+}
+
+function mapRawMovie(raw: Record<string, unknown>, serverUrl: string, username: string, password: string): Movie {
+  const id = String(raw.stream_id ?? '')
+  const ext = String(raw.container_extension ?? 'mp4')
+  const base = serverUrl.replace(/\/+$/, '')
+  const u = encodeURIComponent(username)
+  const p = encodeURIComponent(password)
+  return {
+    id,
+    name: String(raw.name ?? ''),
+    poster: String(raw.stream_icon ?? ''),
+    categoryId: String(raw.category_id ?? ''),
+    streamUrl: `${base}/movie/${u}/${p}/${id}.${ext}`,
+    ext,
+    plot: typeof raw.plot === 'string' ? raw.plot : undefined,
+    year: raw.year != null ? String(raw.year) : undefined,
+    rating: raw.rating != null ? String(raw.rating) : undefined,
+  }
+}
+
+function mapRawSeries(raw: Record<string, unknown>): Series {
+  return {
+    id: String(raw.series_id ?? ''),
+    name: String(raw.name ?? ''),
+    cover: String(raw.cover ?? ''),
+    categoryId: String(raw.category_id ?? ''),
+    plot: typeof raw.plot === 'string' ? raw.plot : undefined,
+    year: raw.year != null ? String(raw.year) : undefined,
+    rating: raw.rating != null ? String(raw.rating) : undefined,
+  }
+}
+
+export async function directGetLiveCategories(serverUrl: string, username: string, password: string): Promise<Category[]> {
+  const raw = await directXtreamGet<unknown[]>(serverUrl, { username, password, action: 'get_live_categories' })
+  return Array.isArray(raw) ? raw.filter(Boolean).map((item) => mapRawCategory(item as Record<string, unknown>)) : []
+}
+
+export async function directGetLiveStreams(serverUrl: string, username: string, password: string): Promise<Channel[]> {
+  const raw = await directXtreamGet<unknown[]>(serverUrl, { username, password, action: 'get_live_streams' })
+  return Array.isArray(raw)
+    ? raw.filter(Boolean).map((item) => mapRawChannel(item as Record<string, unknown>, serverUrl, username, password))
+    : []
+}
+
+export async function directGetVodCategories(serverUrl: string, username: string, password: string): Promise<Category[]> {
+  const raw = await directXtreamGet<unknown[]>(serverUrl, { username, password, action: 'get_vod_categories' })
+  return Array.isArray(raw) ? raw.filter(Boolean).map((item) => mapRawCategory(item as Record<string, unknown>)) : []
+}
+
+export async function directGetVodStreams(serverUrl: string, username: string, password: string): Promise<Movie[]> {
+  const raw = await directXtreamGet<unknown[]>(serverUrl, { username, password, action: 'get_vod_streams' })
+  return Array.isArray(raw)
+    ? raw.filter(Boolean).map((item) => mapRawMovie(item as Record<string, unknown>, serverUrl, username, password))
+    : []
+}
+
+export async function directGetSeriesCategories(serverUrl: string, username: string, password: string): Promise<Category[]> {
+  const raw = await directXtreamGet<unknown[]>(serverUrl, { username, password, action: 'get_series_categories' })
+  return Array.isArray(raw) ? raw.filter(Boolean).map((item) => mapRawCategory(item as Record<string, unknown>)) : []
+}
+
+export async function directGetAllSeries(serverUrl: string, username: string, password: string): Promise<Series[]> {
+  const raw = await directXtreamGet<unknown[]>(serverUrl, { username, password, action: 'get_series' })
+  return Array.isArray(raw) ? raw.filter(Boolean).map((item) => mapRawSeries(item as Record<string, unknown>)) : []
 }
 
 export function buildXtreamStreamUrl(

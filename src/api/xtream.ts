@@ -2,6 +2,12 @@ import type { Category, Channel, Episode, Movie, Series } from '../store'
 import {
   ArelonProxyError,
   buildXtreamStreamUrl,
+  directGetAllSeries,
+  directGetLiveCategories,
+  directGetLiveStreams,
+  directGetSeriesCategories,
+  directGetVodCategories,
+  directGetVodStreams,
   getLiveCategories as proxyLiveCategories,
   getLiveStreams,
   getSeries as proxySeries,
@@ -177,11 +183,17 @@ export async function getShortEpg(
   }
 }
 
+function isProxyUnavailable(e: unknown): boolean {
+  return e instanceof ArelonProxyError && (e.type === 'mixed_content_or_cors' || e.type === 'network_error')
+}
+
 export async function getLiveCategories(serverUrl: string, username: string, password: string): Promise<Category[]> {
   try {
     return await proxyLiveCategories(credentials(serverUrl, username, password))
   } catch (e) {
-    if (e instanceof ArelonProxyError && e.type === 'mixed_content_or_cors') return []
+    if (isProxyUnavailable(e)) {
+      try { return await directGetLiveCategories(serverUrl, username, password) } catch { return [] }
+    }
     throw e
   }
 }
@@ -192,11 +204,18 @@ export async function getLiveChannelsPage(
   password: string,
   options: PageRequest = {},
 ): Promise<PaginatedResult<Channel>> {
-  return await getLiveStreams(credentials(serverUrl, username, password), {
-    page: 1,
-    limit: 50,
-    ...options,
-  })
+  try {
+    return await getLiveStreams(credentials(serverUrl, username, password), { page: 1, limit: 50, ...options })
+  } catch (e) {
+    if (isProxyUnavailable(e)) {
+      try {
+        const all = await directGetLiveStreams(serverUrl, username, password)
+        const filtered = options.categoryId ? all.filter((c) => c.categoryId === options.categoryId) : all
+        return { page: 1, limit: filtered.length, total: filtered.length, hasMore: false, items: filtered }
+      } catch { return { page: 1, limit: 0, total: 0, hasMore: false, items: [] } }
+    }
+    throw e
+  }
 }
 
 export async function getLiveChannels(
@@ -213,7 +232,9 @@ export async function getMovieCategories(serverUrl: string, username: string, pa
   try {
     return await getVodCategories(credentials(serverUrl, username, password))
   } catch (e) {
-    if (e instanceof ArelonProxyError && e.type === 'mixed_content_or_cors') return []
+    if (isProxyUnavailable(e)) {
+      try { return await directGetVodCategories(serverUrl, username, password) } catch { return [] }
+    }
     throw e
   }
 }
@@ -224,11 +245,18 @@ export async function getMoviesPage(
   password: string,
   options: PageRequest = {},
 ): Promise<PaginatedResult<Movie>> {
-  return await getVodStreams(credentials(serverUrl, username, password), {
-    page: 1,
-    limit: 50,
-    ...options,
-  })
+  try {
+    return await getVodStreams(credentials(serverUrl, username, password), { page: 1, limit: 50, ...options })
+  } catch (e) {
+    if (isProxyUnavailable(e)) {
+      try {
+        const all = await directGetVodStreams(serverUrl, username, password)
+        const filtered = options.categoryId ? all.filter((m) => m.categoryId === options.categoryId) : all
+        return { page: 1, limit: filtered.length, total: filtered.length, hasMore: false, items: filtered }
+      } catch { return { page: 1, limit: 0, total: 0, hasMore: false, items: [] } }
+    }
+    throw e
+  }
 }
 
 export async function getMovies(
@@ -245,7 +273,9 @@ export async function getSeriesCategories(serverUrl: string, username: string, p
   try {
     return await proxySeriesCategories(credentials(serverUrl, username, password))
   } catch (e) {
-    if (e instanceof ArelonProxyError && e.type === 'mixed_content_or_cors') return []
+    if (isProxyUnavailable(e)) {
+      try { return await directGetSeriesCategories(serverUrl, username, password) } catch { return [] }
+    }
     throw e
   }
 }
@@ -256,11 +286,18 @@ export async function getSeriesPage(
   password: string,
   options: PageRequest = {},
 ): Promise<PaginatedResult<Series>> {
-  return await proxySeries(credentials(serverUrl, username, password), {
-    page: 1,
-    limit: 50,
-    ...options,
-  })
+  try {
+    return await proxySeries(credentials(serverUrl, username, password), { page: 1, limit: 50, ...options })
+  } catch (e) {
+    if (isProxyUnavailable(e)) {
+      try {
+        const all = await directGetAllSeries(serverUrl, username, password)
+        const filtered = options.categoryId ? all.filter((s) => s.categoryId === options.categoryId) : all
+        return { page: 1, limit: filtered.length, total: filtered.length, hasMore: false, items: filtered }
+      } catch { return { page: 1, limit: 0, total: 0, hasMore: false, items: [] } }
+    }
+    throw e
+  }
 }
 
 export async function getAllSeries(
