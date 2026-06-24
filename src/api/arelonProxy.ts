@@ -438,7 +438,7 @@ export async function login(credentials: ArelonCredentials): Promise<LoginResult
   try {
     return await postData<LoginResult>('/api/xtream/login', credentials)
   } catch (err) {
-    if (err instanceof ArelonProxyError && (err.type === 'mixed_content_or_cors' || err.type === 'network_error')) {
+    if (err instanceof ArelonProxyError && err.type !== 'invalid_credentials') {
       // Fallback direto para ambientes static hosted (GitHub Pages) ou quando a API Arelon proxy não está disponível via HTTPS.
       if (credentials.serverUrl) {
         return await directXtreamLogin(credentials.serverUrl, credentials.username, credentials.password)
@@ -466,7 +466,8 @@ export async function login(credentials: ArelonCredentials): Promise<LoginResult
         }
       }
       if (lastDirectError) {
-        if (corsBlockedAll && servers.length > 0) {
+        const httpsHosted = window.location.protocol === 'https:'
+        if (httpsHosted && corsBlockedAll && servers.length > 0) {
           // Em ambiente hosted estático sem proxy, todas as verificações diretas foram bloqueadas por CORS nos servidores IPTV.
           // Como os servidores vêm do config gerenciado pelo Admin, permitimos o login assumindo o primeiro servidor.
           // A reprodução validará as credenciais na prática.

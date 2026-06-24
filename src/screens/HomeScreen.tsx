@@ -19,6 +19,7 @@ export function HomeScreen() {
   const liveChannels = rawLiveChannels.filter(c => shouldShowChannel(c.name, selectedState))
   const movies = useStore((s) => s.movies)
   const series = useStore((s) => s.series)
+  const error = useStore((s) => s.error)
   const continueWatching = useStore((s) => s.continueWatching)
   const setCurrentMedia = useStore((s) => s.setCurrentMedia)
   const setSelectedDetailMedia = useStore((s) => s.setSelectedDetailMedia)
@@ -145,7 +146,18 @@ export function HomeScreen() {
       </section>
 
       <div className="arelon-home-rails">
-        {isEmpty && <div className="status-msg">Nenhum conteúdo disponível.</div>}
+        {isEmpty && (
+          <div className="status-msg">
+            <p>{error || 'Nenhum conteúdo disponível.'}</p>
+            <button
+              className="arelon-primary-cta"
+              data-focusable="true"
+              onClick={() => window.location.reload()}
+            >
+              Tentar novamente
+            </button>
+          </div>
+        )}
 
         {top10Combined.length > 0 && (
           <MediaRow title="Top 10">
