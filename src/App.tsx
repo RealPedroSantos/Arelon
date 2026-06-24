@@ -200,8 +200,14 @@ export function App() {
           else setSeries(result.categories, result.items)
         }
 
-        if (fails.length > 0 || oks.reduce((total, item) => total + item.n, 0) === 0) {
+        const totalItems = oks.reduce((total, item) => total + item.n, 0)
+        if (fails.length > 0 || totalItems === 0) {
           console.error('[Arelon] carregamento inicial do catálogo', { server: server.activeServer, counts, fails })
+          useStore.getState().setError(
+            totalItems === 0
+              ? 'Não foi possível carregar o catálogo (servidor de conteúdo indisponível).'
+              : null,
+          )
         }
       })
       .finally(() => {

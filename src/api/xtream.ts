@@ -184,7 +184,9 @@ export async function getShortEpg(
 }
 
 function isProxyUnavailable(e: unknown): boolean {
-  return e instanceof ArelonProxyError && (e.type === 'mixed_content_or_cors' || e.type === 'network_error')
+  // Qualquer falha do proxy que NÃO seja credencial inválida deve permitir
+  // o fallback direto ao Xtream (timeout, HTTP 5xx, JSON inválido, CORS, rede).
+  return e instanceof ArelonProxyError && e.type !== 'invalid_credentials'
 }
 
 export async function getLiveCategories(serverUrl: string, username: string, password: string): Promise<Category[]> {
