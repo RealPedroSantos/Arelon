@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { useStore } from './store'
 import {
   authenticate,
@@ -9,17 +9,17 @@ import {
   getMovies,
   getSeriesCategories,
 } from './api/xtream'
-import { LoginScreen } from './screens/LoginScreen'
-import { HomeScreen } from './screens/HomeScreen'
-import { LiveScreen } from './screens/LiveScreen'
-import { MoviesScreen } from './screens/MoviesScreen'
-import { SeriesScreen } from './screens/SeriesScreen'
-import { KidsScreen } from './screens/KidsScreen'
-import { PlayerScreen } from './screens/PlayerScreen'
-import { MultiViewScreen } from './screens/MultiViewScreen'
-import { MediaDetailScreen } from './screens/MediaDetailScreen'
-import { SearchScreen } from './screens/SearchScreen'
-import { AdminScreen } from './screens/AdminScreen'
+const LoginScreen     = lazy(() => import('./screens/LoginScreen').then(m => ({ default: m.LoginScreen })))
+const HomeScreen      = lazy(() => import('./screens/HomeScreen').then(m => ({ default: m.HomeScreen })))
+const LiveScreen      = lazy(() => import('./screens/LiveScreen').then(m => ({ default: m.LiveScreen })))
+const MoviesScreen    = lazy(() => import('./screens/MoviesScreen').then(m => ({ default: m.MoviesScreen })))
+const SeriesScreen    = lazy(() => import('./screens/SeriesScreen').then(m => ({ default: m.SeriesScreen })))
+const KidsScreen      = lazy(() => import('./screens/KidsScreen').then(m => ({ default: m.KidsScreen })))
+const PlayerScreen    = lazy(() => import('./screens/PlayerScreen').then(m => ({ default: m.PlayerScreen })))
+const MultiViewScreen = lazy(() => import('./screens/MultiViewScreen').then(m => ({ default: m.MultiViewScreen })))
+const MediaDetailScreen = lazy(() => import('./screens/MediaDetailScreen').then(m => ({ default: m.MediaDetailScreen })))
+const SearchScreen    = lazy(() => import('./screens/SearchScreen').then(m => ({ default: m.SearchScreen })))
+const AdminScreen     = lazy(() => import('./screens/AdminScreen').then(m => ({ default: m.AdminScreen })))
 import { applySharedAdminConfig, loadSharedAdminConfig } from './lib/adminConfig'
 import { loadLogoBank, resolveChannelLogoCandidates } from './lib/logoResolver'
 import { preloadImages } from './lib/imagePreload'
@@ -180,7 +180,18 @@ export function App() {
       },
     ]
 
-    void Promise.allSettled(tasks.map((task) => task()))
+    // Carregar em sequência (live primeiro) para não sobrecarregar a TV no boot
+    void (async () => {
+      const results: PromiseSettledResult<CatalogLoadResult>[] = []
+      for (const task of tasks) {
+        try {
+          results.push({ status: 'fulfilled', value: await task() })
+        } catch (reason) {
+          results.push({ status: 'rejected', reason })
+        }
+      }
+      return results
+    })()
       .then(async (results) => {
         if (cancelled) return
 
@@ -191,7 +202,7 @@ export function App() {
         const counts = oks.map((item) => `${item.k}:${item.n}`).join(', ')
 
         setCatalogLoadingMessage('Carregando capas...')
-        await preloadImages(collectInitialArtwork(oks), { batchSize: 8, limit: 36, timeoutMs: 4500 })
+        await preloadImages(collectInitialArtwork(oks), { batchSize: 4, limit: 12, timeoutMs: 3000 })
         if (cancelled) return
 
         for (const result of oks) {
@@ -279,8 +290,8 @@ export function App() {
   }
 
   return (
-    <>
+    <Suspense fallback={<div style={{ background: '#000', width: '100vw', height: '100vh' }} />}>
       {content}
-    </>
+    </Suspense>
   )
 }

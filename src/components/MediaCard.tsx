@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { resolveChannelLogoCandidates } from '../lib/logoResolver'
 
 export interface MediaCardProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -17,7 +17,7 @@ export interface MediaCardProps extends React.ButtonHTMLAttributes<HTMLButtonEle
   'data-focusable'?: string
 }
 
-export function MediaCard({
+function MediaCardComponent({
   id,
   title,
   imageUrl,
@@ -98,3 +98,5 @@ export function MediaCard({
     </button>
   )
 }
+
+export const MediaCard = memo(MediaCardComponent)
