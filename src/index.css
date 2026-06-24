@@ -728,12 +728,16 @@ textarea {
   position: relative;
   min-height: 820px;
   display: flex;
-  align-items: center;
-  padding: 158px 88px 150px;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  /* padding-top folgado para o conteúdo do hero começar bem abaixo da topbar (~138px) */
+  padding: 230px 88px 150px;
   background:
     linear-gradient(90deg, rgba(0, 0, 0, 0.98) 0%, rgba(0, 0, 0, 0.76) 30%, rgba(0, 0, 0, 0.14) 66%, rgba(0, 0, 0, 0.48) 100%),
     linear-gradient(180deg, rgba(0, 0, 0, 0.24) 0%, rgba(0, 0, 0, 0.08) 48%, #000 100%),
     url('/assets/arelon/fundo-imagem-app-padrao.png') center/cover;
+  transition: background-image 0.6s ease;
 }
 
 .arelon-hero-copy {
@@ -809,6 +813,19 @@ textarea {
   z-index: 2;
   margin-top: -92px;
   padding: 0 0 88px 74px;
+}
+
+/* Gradiente inferior indicando que há mais fileiras abaixo (peek vertical) */
+.arelon-home-rails::after {
+  content: '';
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 120px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, transparent 100%);
+  pointer-events: none;
+  z-index: 10;
 }
 
 .arelon-loading-block {
@@ -2606,6 +2623,9 @@ textarea {
   scroll-padding-inline: calc(20px + var(--media-row-edge-gutter));
   scroll-behavior: smooth;
   scroll-snap-type: x mandatory;
+  /* Fade nas bordas para indicar que há mais conteúdo ao lado (peek) */
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 3%, black 94%, transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0%, black 3%, black 94%, transparent 100%);
 }
 
 .media-row:focus-within {
@@ -2961,6 +2981,13 @@ body.tizen-tv .media-card:hover .media-card-inner {
   font-weight: 900;
   color: #fff;
   letter-spacing: -1px;
+}
+
+.media-detail-logo-text {
+  max-height: 120px;
+  max-width: 480px;
+  object-fit: contain;
+  object-position: left center;
 }
 
 .detail-metadata {

@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useStore, shouldShowChannel } from '../store'
 import type { Channel, ContinueWatchingItem, Movie, Series } from '../store'
 import { moveFocus, useRemote } from '../hooks/useRemote'
@@ -74,6 +74,8 @@ export function HomeScreen() {
       plot: m.plot,
       year: m.year,
       rating: m.rating,
+      backdrop: m.backdrop,
+      logoText: m.logoText,
     })
   }
 
@@ -88,6 +90,8 @@ export function HomeScreen() {
       plot: s.plot,
       year: s.year,
       rating: s.rating,
+      backdrop: s.backdrop,
+      logoText: s.logoText,
     })
   }
 
@@ -128,17 +132,67 @@ export function HomeScreen() {
   const hasAnyContent = liveChannels.length > 0 || movies.length > 0 || series.length > 0
   const isEmpty = !hasAnyContent
 
+  const [heroIndex, setHeroIndex] = useState(0)
+
+  // Filmes/séries com backdrop disponível para o hero rotativo
+  const heroItems = useMemo(() => {
+    const items: Array<{
+      title: string
+      plot?: string
+      backdrop: string
+      type: 'movie' | 'series'
+      item: Movie | Series
+    }> = []
+    for (const m of movies.slice(0, 20)) {
+      if (m.backdrop) items.push({ title: m.name, plot: m.plot, backdrop: m.backdrop, type: 'movie', item: m })
+    }
+    for (const s of series.slice(0, 20)) {
+      if (s.backdrop) items.push({ title: s.name, plot: s.plot, backdrop: s.backdrop, type: 'series', item: s })
+    }
+    return items.slice(0, 8)
+  }, [movies, series])
+
+  const currentHero = heroItems.length > 0 ? heroItems[heroIndex % heroItems.length] : undefined
+
+  // Rotaciona o hero a cada 8 segundos
+  useEffect(() => {
+    if (heroItems.length <= 1) return
+    const t = setInterval(() => setHeroIndex((i) => (i + 1) % heroItems.length), 8000)
+    return () => clearInterval(t)
+  }, [heroItems.length])
+
+  function playHero() {
+    if (!currentHero) {
+      handleWatchNow()
+      return
+    }
+    if (currentHero.type === 'movie') playMovie(currentHero.item as Movie)
+    else playSeries(currentHero.item as Series)
+  }
+
   return (
     <div className="home-page home-page--arelon" ref={pageRef}>
-      <section className="arelon-hero" aria-label="Destaque Arelon">
+      <section
+        className="arelon-hero"
+        aria-label="Destaque Arelon"
+        style={
+          currentHero
+            ? {
+                backgroundImage: `linear-gradient(90deg, rgba(0,0,0,.95) 0%, rgba(0,0,0,.7) 35%, rgba(0,0,0,.1) 70%, rgba(0,0,0,.4) 100%), linear-gradient(180deg, rgba(0,0,0,.2) 0%, rgba(0,0,0,.05) 48%, #000 100%), url('${currentHero.backdrop}')`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+              }
+            : undefined
+        }
+      >
         <div className="arelon-hero-copy">
-          <h1>Viva grandes histórias</h1>
-          <p>TV ao vivo, filmes e séries quando e onde quiser.</p>
+          <h1>{currentHero ? currentHero.title : 'Viva grandes histórias'}</h1>
+          <p>{currentHero?.plot ?? 'TV ao vivo, filmes e séries quando e onde quiser.'}</p>
           <button
             className="arelon-primary-cta hero-btn"
             data-focusable="true"
             aria-disabled={!hasAnyContent}
-            onClick={handleWatchNow}
+            onClick={playHero}
           >
             ASSISTIR AGORA
           </button>
