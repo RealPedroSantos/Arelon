@@ -28,6 +28,8 @@ import type { Category, Channel, Movie, Series } from './store'
 import { AppShell } from './components/AppShell'
 import { CatalogLoadingScreen } from './components/CatalogLoadingScreen'
 
+
+
 type CatalogLoadResult =
   | { kind: 'live'; k: string; n: number; categories: Category[]; channels: Channel[] }
   | { kind: 'movies'; k: string; n: number; categories: Category[]; items: Movie[] }
@@ -71,6 +73,14 @@ function collectInitialArtwork(results: CatalogLoadResult[]): string[] {
 }
 
 export function App() {
+  useEffect(() => {
+    const onArelonLogin = () => {
+      window.location.reload()
+    }
+
+    window.addEventListener('arelon-login', onArelonLogin as EventListener)
+    return () => window.removeEventListener('arelon-login', onArelonLogin as EventListener)
+  }, [])
   const isAuthenticated = useStore((s) => s.isAuthenticated)
   const isAdminAuthenticated = useStore((s) => s.isAdminAuthenticated)
   const server = useStore((s) => s.server)

@@ -6,6 +6,9 @@ import { Keyboard } from '../components/Keyboard'
 import { getServerCount } from '../lib/pool'
 import { getDefaultSharedAdminConfig } from '../lib/adminConfig'
 
+
+
+
 type Field = 'username' | 'password'
 
 const MASTER_USERNAME = (import.meta.env.VITE_MASTER_USERNAME || 'master').trim()
@@ -89,8 +92,9 @@ export function LoginScreen() {
     if (tempServer) {
       setServer(tempServer)
     }
+    setAdminAuthenticated(false)
     setAuthenticated(true)
-  }, [tempServer, setServer, setAuthenticated, setSelectedState])
+  }, [tempServer, setServer, setAuthenticated, setAdminAuthenticated, setSelectedState])
 
   const handleLogin = useCallback(async () => {
     const trimmedUsername = username.trim()
@@ -104,6 +108,7 @@ export function LoginScreen() {
 
     if (trimmedUsername === MASTER_USERNAME && trimmedPassword === MASTER_PASSWORD) {
       setError('')
+      setAuthenticated(false)
       setAdminAuthenticated(true)
       return
     }
