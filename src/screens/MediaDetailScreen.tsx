@@ -59,7 +59,7 @@ export function MediaDetailScreen() {
     const hrs = Math.floor(s / 3600)
     const mins = Math.floor((s % 3600) / 60)
     const secs = Math.floor(s % 60).toString().padStart(2, '0')
-    return hrs > 0 ?  : 
+    return hrs > 0 ? `${hrs}h ${mins}min` : `${mins}:${secs}` 
   }
 
   // Background & Trailer support for pre-player screen

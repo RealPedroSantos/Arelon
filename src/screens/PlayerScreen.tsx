@@ -208,6 +208,7 @@ export function PlayerScreen() {
   const nextEpisodeItem = currentEpisodeIndex >= 0 ? episodeQueue[currentEpisodeIndex + 1] ?? null : null
   const playerMeta = isLiveContent ? 'AO VIVO' : isSeries ? 'Série' : 'Filme'
   const canSkipIntro = isSeries && currentTime < 150
+  void canSkipIntro
   const canNextEpisode = isSeries && !!nextEpisodeItem && duration > 0 && currentTime > duration - 120
 
   // Mostra overlay Pular Intro nos primeiros 150s de episodio, some em 8s
@@ -805,6 +806,7 @@ export function PlayerScreen() {
     if (videoRef.current?.paused) togglePlay()
     showCtrl()
   }
+  void continueWatching
 
   function showFeatureMessage(label: string) {
     setInfoMsg(`${label} indisponível neste conteúdo.`)
@@ -1031,8 +1033,8 @@ export function PlayerScreen() {
                 onClick={playNextEpisode}
               >
                 {nextEpisodeCountdown !== null
-                  ? 
-                  : 'Próximo Episódio'}
+                  ? `Próximo Episódio em ${nextEpisodeCountdown}s`
+                  : 'Próximo Episódio'}
               </button>
             ) : null}
           </div>

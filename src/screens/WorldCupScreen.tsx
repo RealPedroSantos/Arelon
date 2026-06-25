@@ -3,11 +3,21 @@ import { useStore, shouldShowChannel } from '../store'
 import { moveFocus, focusFirst, useRemote } from '../hooks/useRemote'
 import { useMainReturnPoint } from '../hooks/useMainReturnPoint'
 import { getSportsCalendar, type SportsCalendarEvent } from '../api/arelonProxy'
-import { getChannelDisplayName } from '../lib/logoResolver'
 import { setTransitioningToFullscreenUrl } from '../lib/playback'
 import { unlockAudio } from '../lib/tvSound'
 import type { Channel } from '../store'
 import '../components/WorldCupScreen.css'
+
+function getChannelDisplayName(channel: any): string {
+  return String(
+    channel?.name ||
+    channel?.title ||
+    channel?.displayName ||
+    channel?.channelName ||
+    'Canal'
+  )
+}
+
 
 // ─── Copa do Mundo FIFA 2026 — Dados do Calendário ─────────────────────────
 // O torneio acontece nos EUA, México e Canadá de 11 de junho a 19 de julho de 2026.
@@ -153,7 +163,7 @@ export function WorldCupScreen() {
   const setCurrentMedia = useStore((s) => s.setCurrentMedia)
   const setScreen = useStore((s) => s.setScreen)
   const pageRef = useRef<HTMLDivElement>(null)
-  const rememberReturnPoint = useMainReturnPoint('worldcup', pageRef)
+  const rememberReturnPoint = useMainReturnPoint('home', pageRef)
   const [activePhase, setActivePhase] = useState('all')
   const [sportsCalendarEvents, setSportsCalendarEvents] = useState<SportsCalendarEvent[]>([])
   const [countdown, setCountdown] = useState(getCountdown('2026-06-11'))

@@ -165,12 +165,12 @@ export function buildHomeCarousels(opts: BuildCarouselsOptions): HomeCarousel[] 
   const maxFranchise = 15
   for (let i = 0; franchiseItems.length < maxFranchise && (i < franchiseMovies.length || i < franchiseSeries.length); i++) {
     if (franchiseMovies[i]) {
-      franchiseItems.push(movieToCarouselItem(franchiseMovies[i].item, undefined, franchiseMovies[i].score))
-      usedMovieIds.add(franchiseMovies[i].item.id)
+      franchiseItems.push(movieToCarouselItem(franchiseMovies[i]!.item, undefined, franchiseMovies[i]!.score))
+      usedMovieIds.add(franchiseMovies[i]!.item.id)
     }
     if (franchiseSeries[i] && franchiseItems.length < maxFranchise) {
-      franchiseItems.push(seriesToCarouselItem(franchiseSeries[i].item, undefined, franchiseSeries[i].score))
-      usedSeriesIds.add(franchiseSeries[i].item.id)
+      franchiseItems.push(seriesToCarouselItem(franchiseSeries[i]!.item, undefined, franchiseSeries[i]!.score))
+      usedSeriesIds.add(franchiseSeries[i]!.item.id)
     }
   }
 

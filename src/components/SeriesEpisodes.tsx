@@ -83,20 +83,16 @@ export function SeriesEpisodes({
           O MediaRow interno + CSS + nudge faz com que L/R mova só os mini cards dentro da faixa,
           exatamente como na Home, filmes, séries etc. */}
       <div className="arelon-home-rails episodes-rail">
-        <MediaRow>
-          {list.map((ep, idx) => {
-            const epNum = ep.episodeNum.toString().padStart(2, '0')
+        <MediaRow title="Episódios">
+          {list.map((ep) => {
             const epName = cleanEpisodeTitle(ep.title, ep.episodeNum)
-            const subtitle = `EP: ${epNum} - ${epName}`
             return (
               <MediaCard
                 key={ep.id}
                 id={ep.id}
                 title={epName}
-                subtitle={subtitle}
                 imageUrl={ep.image || ''}
                 aspectRatio="landscape"
-                priority={idx < 8}
                 data-focusable="true"
                 onClick={() => playEpisode(ep)}
               />
@@ -109,14 +105,13 @@ export function SeriesEpisodes({
       {similarSeries && similarSeries.length > 0 && onSelectSeries && (
         <div className="arelon-home-rails similar-rail">
           <MediaRow title="Séries similares">
-            {similarSeries.map((s, idx) => (
+            {similarSeries.map((s) => (
               <MediaCard
                 key={s.id}
                 id={`similar-${s.id}`}
                 title={s.name}
                 imageUrl={s.cover || ''}
                 aspectRatio="poster"
-                priority={idx < 6}
                 data-focusable="true"
                 onClick={() => onSelectSeries(s)}
               />
