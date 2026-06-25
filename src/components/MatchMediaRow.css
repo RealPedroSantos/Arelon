@@ -1,3 +1,4 @@
+/* ── Match Row Container ─────────────────────────────────────────────────── */
 .match-row-container {
   position: relative;
   margin-bottom: 42px;
@@ -9,192 +10,255 @@
 }
 
 .match-row__title {
-  font-size: 37px;
-  font-weight: 600;
-  color: #ff00ff;
-  margin-bottom: 22px;
+  font-size: 30px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 20px;
   padding-left: 20px;
   line-height: 1.1;
-  letter-spacing: 0.3px;
+  letter-spacing: -0.2px;
 }
 
-/* O card herda a largura e altura exatas das classes nativas .media-card e .media-card-inner */
-.match-card {
-  border: 0 !important;
-  background: transparent !important;
-  padding: 0 !important;
+.match-row__scroll {
+  display: flex;
+  gap: 18px;
+  overflow-x: auto;
+  overflow-y: visible;
+  padding: 12px 20px 20px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
 }
 
-.match-card-inner {
+.match-row__scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Match Card Button ───────────────────────────────────────────────────── */
+.match-card-btn {
+  flex-shrink: 0;
+  scroll-snap-align: start;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  outline: none;
+  border-radius: 20px;
+  -webkit-transform: translate3d(0, 0, 0);
+  transform: translate3d(0, 0, 0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  will-change: transform;
+  transition:
+    -webkit-transform 0.18s ease-out,
+    transform 0.18s ease-out,
+    box-shadow 0.18s ease-out;
+}
+
+.match-card-btn:focus,
+.match-card-btn:hover {
+  outline: none;
+  -webkit-transform: translate3d(0, 0, 0) scale(1.07);
+  transform: translate3d(0, 0, 0) scale(1.07);
+  z-index: 100;
+}
+
+.match-card-btn:focus .match-card-body,
+.match-card-btn:hover .match-card-body {
+  border-color: rgba(29, 231, 255, 0.65);
+  box-shadow:
+    0 0 0 2px rgba(29, 231, 255, 0.2),
+    0 20px 48px rgba(0, 0, 0, 0.6);
+}
+
+/* ── Card Body ───────────────────────────────────────────────────────────── */
+.match-card-body {
+  width: 370px;
+  height: 260px;
+  border-radius: 20px;
+  background: linear-gradient(160deg, #0f172a 0%, #1e293b 100%);
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  width: 100%;
-  height: 100%;
-  padding: 20px;
-  box-sizing: border-box;
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.4), rgba(15, 23, 42, 0.75)), #0f172a;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.45);
-  position: relative;
+  overflow: hidden;
+  transition:
+    border-color 0.18s,
+    box-shadow 0.18s;
 }
 
-/* Cabeçalho do Card */
-.match-card-header {
+/* ── Teams Section ───────────────────────────────────────────────────────── */
+.match-card-teams {
+  flex: 1;
   display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 20px 18px 10px;
+  min-height: 0;
+}
+
+/* ── Team Logo Wrapper ───────────────────────────────────────────────────── */
+.match-team-logo-wrap {
+  display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 8px;
-  font-family: 'Inter', sans-serif;
-}
-
-.match-category-tag {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.55);
-  letter-spacing: 1px;
-}
-
-.match-separator {
-  color: rgba(255, 255, 255, 0.3);
-  font-size: 11px;
-}
-
-.match-channel-tag {
-  font-size: 13px;
-  font-weight: 800;
-  color: #ff00ff;
-  text-shadow: 0 0 8px rgba(255, 0, 255, 0.2);
-}
-
-/* Corpo do Card: Confronto */
-.match-card-matchup {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  margin: 10px 0;
   flex: 1;
-  overflow: hidden;
+  min-width: 0;
 }
 
-.team-text-wrapper {
-  width: 115px;
-  overflow: hidden;
+/* The visual logo/flag box */
+.match-team-logo-area {
+  width: 120px;
+  height: 88px;
+  border-radius: 14px;
   display: flex;
-  justify-content: center;
   align-items: center;
-  position: relative;
+  justify-content: center;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
 }
 
-.team-text {
-  font-size: 20px;
+.match-team-logo-area--flag {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.match-team-logo-area--initials {
+  background: linear-gradient(135deg, rgba(37, 69, 255, 0.4), rgba(123, 44, 255, 0.4));
+  border-color: rgba(123, 44, 255, 0.3);
+}
+
+.match-team-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.match-team-flag-emoji {
+  font-size: 68px;
+  line-height: 1;
+  /* Force emoji rendering (not text) */
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+  -webkit-text-stroke: 0;
+  display: block;
+}
+
+.match-team-initials-text {
+  font-size: 36px;
   font-weight: 900;
   color: #ffffff;
+  letter-spacing: -1px;
+  line-height: 1;
+}
+
+.match-team-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.75);
   text-align: center;
-  max-width: 115px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  letter-spacing: -0.3px;
-  font-family: 'Outfit', 'Inter', sans-serif;
-  display: inline-block;
-  will-change: transform;
-}
-
-/* Regras de rolagem (marquee) ativadas sob foco/hover apenas para nomes longos */
-.match-card:hover .team-text-wrapper--scrollable,
-.match-card:focus .team-text-wrapper--scrollable {
-  justify-content: flex-start;
-}
-
-.match-card:hover .team-text--scrollable,
-.match-card:focus .team-text--scrollable {
-  max-width: none;
-  overflow: visible;
-  text-overflow: clip;
-  animation: match-marquee-scroll 6s linear infinite;
-}
-
-@keyframes match-marquee-scroll {
-  0% {
-    transform: translate3d(115px, 0, 0);
-  }
-  100% {
-    transform: translate3d(-100%, 0, 0);
-  }
-}
-
-.vs-text {
-  font-size: 13px;
-  font-weight: 800;
+  max-width: 120px;
+  letter-spacing: 0.2px;
   text-transform: uppercase;
-  color: #1de7ff;
-  background: rgba(29, 231, 255, 0.12);
-  padding: 4px 8px;
-  border-radius: 6px;
-  text-shadow: 0 0 8px rgba(29, 231, 255, 0.2);
-  border: 1px solid rgba(29, 231, 255, 0.15);
 }
 
-/* Rodapé do Card */
-.match-card-footer-row {
+/* ── VS Separator ────────────────────────────────────────────────────────── */
+.match-card-vs {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  width: 100%;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
 }
 
-.time-badge {
-  font-size: 13px;
-  font-weight: 800;
+.match-card-vs-x {
+  font-size: 42px;
+  font-weight: 900;
   color: #ffffff;
-  background: rgba(255, 255, 255, 0.08);
-  padding: 4px 10px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  line-height: 1;
+  letter-spacing: -2px;
+  text-shadow: 0 2px 12px rgba(255, 255, 255, 0.18);
 }
 
-.live-dot-badge {
+/* ── Footer: Channel + Time ──────────────────────────────────────────────── */
+.match-card-meta {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
+  padding: 10px 18px 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.match-card-channel {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  flex: 1;
+}
+
+.match-card-channel-logo {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.match-card-channel-name {
+  font-size: 15px;
+  font-weight: 800;
+  color: rgba(255, 255, 255, 0.9);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.2px;
+}
+
+.match-card-divider {
+  width: 1px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.2);
+  flex-shrink: 0;
+}
+
+.match-card-time {
+  font-size: 15px;
+  font-weight: 800;
+  color: #1de7ff;
+  white-space: nowrap;
+  flex-shrink: 0;
+  letter-spacing: 0.3px;
+}
+
+/* ── Live Badge ──────────────────────────────────────────────────────────── */
+.match-card-live-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   font-size: 11px;
   font-weight: 800;
-  color: #1de7ff;
+  color: #ff4d4d;
   letter-spacing: 0.5px;
-  text-shadow: 0 0 8px rgba(29, 231, 255, 0.25);
+  flex-shrink: 0;
 }
 
-.dot-pulsate {
+.match-card-live-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #1de7ff;
-  box-shadow: 0 0 8px #1de7ff;
-  animation: match-dot-pulse 1.6s infinite ease-in-out;
+  background: #ff4d4d;
+  box-shadow: 0 0 6px #ff4d4d;
+  animation: match-live-pulse 1.6s infinite ease-in-out;
 }
 
-@keyframes match-dot-pulse {
-  0% {
-    transform: scale(0.85);
-    opacity: 0.5;
-  }
-  50% {
-    transform: scale(1.2);
-    opacity: 1;
-    box-shadow: 0 0 12px #1de7ff;
-  }
-  100% {
-    transform: scale(0.85);
-    opacity: 0.5;
-  }
-}
-
-/* Estado ativo para os botões de atalho de esporte */
-.sport-shortcut-btn--active {
-  background: linear-gradient(96deg, rgba(25, 61, 255, 0.45) 0%, rgba(139, 53, 255, 0.45) 100%) !important;
-  border: 1px solid rgba(29, 231, 255, 0.6) !important;
-  box-shadow: 0 8px 24px rgba(35, 44, 255, 0.25) !important;
-  color: #ffffff !important;
+@keyframes match-live-pulse {
+  0%, 100% { transform: scale(0.85); opacity: 0.6; }
+  50% { transform: scale(1.2); opacity: 1; box-shadow: 0 0 10px #ff4d4d; }
 }

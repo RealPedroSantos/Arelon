@@ -11,6 +11,15 @@ const devCertDir = path.resolve(process.cwd(), 'scratch', 'dev-certs')
 export default defineConfig({
   base: './',
   plugins: [react()],
+  define: {
+    // Map non-prefixed Vercel env vars so they're accessible via import.meta.env
+    'import.meta.env.VITE_MASTER_USERNAME': JSON.stringify(
+      process.env.VITE_MASTER_USERNAME ?? process.env.MASTER_USERNAME ?? 'master'
+    ),
+    'import.meta.env.VITE_MASTER_PASSWORD': JSON.stringify(
+      process.env.VITE_MASTER_PASSWORD ?? process.env.MASTER_PASSWORD ?? 'master123'
+    ),
+  },
   server: {
     host: true,
     port: 5175,

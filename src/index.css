@@ -36,7 +36,7 @@ body,
   overflow: hidden;
   background: var(--arelon-bg);
   color: #f0f0f0;
-  font-family: 'Samsung One', 'Helvetica Neue', Arial, sans-serif;
+  font-family: 'Avenir', 'Avenir Next', 'Helvetica Neue', Arial, sans-serif;
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
   transform-origin: top left;
@@ -622,7 +622,7 @@ textarea {
 }
 
 .live-channel-region--sports::before {
-  top: 80px; /* Alinha o degradê de sumiço dos canais para iniciar exatamente abaixo dos botões fixos */
+  top: 0;
 }
 
 .live-channel-scroll {

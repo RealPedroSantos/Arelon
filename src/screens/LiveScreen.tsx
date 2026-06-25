@@ -5,6 +5,8 @@ import { useMainReturnPoint } from '../hooks/useMainReturnPoint'
 import { MediaRow } from '../components/MediaRow'
 import { MediaCard } from '../components/MediaCard'
 import { LivePreview } from '../components/LivePreview'
+import MatchMediaRow from '../components/MatchMediaRow'
+import type { MatchCardItem } from '../components/MatchMediaRow'
 import type { EpgProgram } from '../api/xtream'
 import { setTransitioningToFullscreenUrl } from '../lib/playback'
 import { unlockAudio } from '../lib/tvSound'
@@ -46,7 +48,8 @@ export function LiveScreen({ filter = 'all' }: { filter?: 'tv' | 'esporte' | 'al
   const rememberReturnPoint = useMainReturnPoint(screenName, pageRef)
   const [previewChannel, setPreviewChannel] = useState<Channel | null>(null)
   const [epgPrograms, setEpgPrograms] = useState<EpgProgram[]>([])
-  const [activeSportTab, setActiveSportTab] = useState('all')
+  const [matchItems, setMatchItems] = useState<MatchCardItem[]>([])
+  const matchFetchedRef = useRef(false)
   const [categoryRows, setCategoryRows] = useState<Record<string, LiveRowState>>({})
   const [visibleLiveCategoryCount, setVisibleLiveCategoryCount] = useState(INITIAL_LIVE_CATEGORY_COUNT)
 
@@ -73,6 +76,86 @@ export function LiveScreen({ filter = 'all' }: { filter?: 'tv' | 'esporte' | 'al
       return dateTime.slice(11, 16) || '--:--'
     }
   }
+
+  function parseMatchTitle(title: string): { teamA: string; teamB: string } | null {
+    const cleaned = title.replace(/^[^:]+:\s*/, '') // strip "Copa do Mundo: " prefix
+    const patterns = [/^(.+?)\s+x\s+(.+)$/i, /^(.+?)\s+vs\.?\s+(.+)$/i, /^(.+?)\s+×\s+(.+)$/]
+    for (const pattern of patterns) {
+      const m = cleaned.match(pattern)
+      if (m && m[1].trim().length > 1 && m[2].trim().length > 1) {
+        return { teamA: m[1].trim(), teamB: m[2].trim() }
+      }
+    }
+    return null
+  }
+
+  // Fetch EPG for sports channels and extract today's match schedule
+  useEffect(() => {
+    if (!isSports || matchFetchedRef.current) return
+    const sportsChannels = liveChannels
+      .filter((c) => {
+        const catName = liveCategories.find((cat) => cat.id === c.categoryId)?.name ?? ''
+        return checkIsSport(c.name, catName)
+      })
+      .slice(0, 20)
+
+    if (sportsChannels.length === 0) return
+    matchFetchedRef.current = true
+
+    const today = new Date().toDateString()
+
+    Promise.allSettled(
+      sportsChannels.map((ch) =>
+        getShortEpg(server.activeServer, server.username, server.password, ch.id, 6)
+          .then((programs) => ({ channel: ch, programs }))
+          .catch(() => ({ channel: ch, programs: [] as EpgProgram[] })),
+      ),
+    ).then((results) => {
+      const items: MatchCardItem[] = []
+      const seen = new Set<string>()
+
+      for (const result of results) {
+        if (result.status !== 'fulfilled') continue
+        const { channel, programs } = result.value
+
+        for (const prog of programs) {
+          const startDate = new Date(prog.start.replace(' ', 'T'))
+          if (startDate.toDateString() !== today) continue
+
+          const match = parseMatchTitle(prog.title)
+          if (!match) continue
+
+          const key = `${match.teamA}|${match.teamB}`
+          if (seen.has(key)) continue
+          seen.add(key)
+
+          const isLive = (() => {
+            const now = Date.now()
+            const end = new Date(prog.end.replace(' ', 'T')).getTime()
+            return startDate.getTime() <= now && now < end
+          })()
+
+          items.push({
+            id: `${channel.id}-${prog.start}`,
+            category: 'esporte',
+            categoryLabel: 'Esporte',
+            teamA: { name: match.teamA, logo: '' },
+            teamB: { name: match.teamB, logo: '' },
+            time: formatEpgTime(prog.start),
+            isLive,
+            channel: {
+              name: channel.name,
+              logo: channel.logoCdn || channel.logoPlaylist || channel.logo || '',
+              url: channel.streamUrl,
+            },
+          })
+        }
+      }
+
+      items.sort((a, b) => a.time.localeCompare(b.time))
+      setMatchItems(items)
+    })
+  }, [isSports, liveChannels.length, liveCategories.length, server])
 
   useEffect(() => {
     if (liveCategories.length > 0) return
@@ -397,126 +480,6 @@ export function LiveScreen({ filter = 'all' }: { filter?: 'tv' | 'esporte' | 'al
     return { futebol, lutas, velocidade, americanos, geral }
   })()
 
-  // SVGs de Ícones esportivos embutidos
-  const soccerIcon = (
-    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2.5" className="sport-shortcut-icon">
-      <circle cx="12" cy="12" r="10" />
-      <path d="m12 7-1.5 2h3zM8 12.5l2-1.5v3zM16 12.5l-2-1.5v3zM10.5 17.5l1.5-2 1.5 2zM12 2v5M2 12h6M16 12h6M12 22v-4.5" />
-    </svg>
-  )
-
-  const fightIcon = (
-    <svg
-      viewBox="0 0 24 24"
-      width="24"
-      height="24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="sport-shortcut-icon"
-    >
-      <path d="M18 10h-4a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2z" />
-      <path d="M12 14H6a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h6" />
-      <path d="M12 10V6a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v4" />
-    </svg>
-  )
-
-  const racingIcon = (
-    <svg
-      viewBox="0 0 24 24"
-      width="24"
-      height="24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="sport-shortcut-icon"
-    >
-      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
-      <line x1="4" y1="22" x2="4" y2="15" />
-    </svg>
-  )
-
-  const basketballIcon = (
-    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2.5" className="sport-shortcut-icon">
-      <circle cx="12" cy="12" r="10" />
-      <path d="M6.2 6.2c3 3 3 8.6 0 11.6M17.8 6.2c-3 3-3 8.6 0 11.6M12 2v20M2 12h20" />
-    </svg>
-  )
-
-  const trophyIcon = (
-    <svg
-      viewBox="0 0 24 24"
-      width="24"
-      height="24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="sport-shortcut-icon"
-    >
-      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
-      <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
-      <path d="M4 22h16" />
-      <path d="M10 14.66V17c0 .55-.45 1-1 1H4v2h16v-2h-5c-.55 0-1-.45-1-1v-2.34" />
-      <path d="M12 2a6 6 0 0 1 6 6v5a6 6 0 0 1-6 6 6 6 0 0 1-6-6V8a6 6 0 0 1 6-6z" />
-    </svg>
-  )
-
-  const gridIcon = (
-    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2.5" className="sport-shortcut-icon">
-      <rect x="3" y="3" width="18" height="18" rx="2" />
-      <path d="M9 3v18M15 3v18M3 9h18M3 15h18" />
-    </svg>
-  )
-
-  const shortcuts = [
-    {
-      id: 'all',
-      label: 'Ver Todos',
-      icon: gridIcon,
-      hasData: true,
-    },
-    {
-      id: 'futebol',
-      label: 'Futebol',
-      icon: soccerIcon,
-      hasData: classifiedSports ? classifiedSports.futebol.length > 0 : false,
-    },
-    {
-      id: 'lutas',
-      label: 'Lutas & UFC',
-      icon: fightIcon,
-      hasData: classifiedSports ? classifiedSports.lutas.length > 0 : false,
-    },
-    {
-      id: 'velocidade',
-      label: 'Velocidade',
-      icon: racingIcon,
-      hasData: classifiedSports ? classifiedSports.velocidade.length > 0 : false,
-    },
-    {
-      id: 'americanos',
-      label: 'E. Americanos',
-      icon: basketballIcon,
-      hasData: classifiedSports ? classifiedSports.americanos.length > 0 : false,
-    },
-    {
-      id: 'geral',
-      label: 'Canais Gerais',
-      icon: trophyIcon,
-      hasData: classifiedSports ? classifiedSports.geral.length > 0 : false,
-    },
-  ].filter((s) => s.hasData)
-
-  function handleShortcutClick(id: string) {
-    setActiveSportTab(id)
-  }
-
   // Filtragem das categorias padrão
   const filteredCategories = liveCategories.filter((cat) => {
     const lowerName = cat.name.toLowerCase()
@@ -688,25 +651,19 @@ export function LiveScreen({ filter = 'all' }: { filter?: 'tv' | 'esporte' | 'al
         </div>
 
         <div className={`live-channel-region${isSports ? ' live-channel-region--sports' : ''}`}>
-          {isSports && shortcuts.length > 0 && (
-            <div className="arelon-sport-shortcuts" aria-label="Atalhos de esporte">
-              {shortcuts.map((s) => (
-                <button
-                  key={s.id}
-                  className={`sport-shortcut-btn ${activeSportTab === s.id ? 'sport-shortcut-btn--active' : ''}`}
-                  data-focusable="true"
-                  onClick={() => handleShortcutClick(s.id)}
-                >
-                  {s.icon}
-                  <span>{s.label}</span>
-                </button>
-              ))}
-            </div>
-          )}
-
           <div className="live-channel-scroll">
             {isSports ? (
               <>
+                {matchItems.length > 0 && (
+                  <MatchMediaRow
+                    title="Jogos de Hoje"
+                    items={matchItems}
+                    onOpenChannel={(item) => {
+                      const ch = liveChannels.find((c) => c.streamUrl === item.channel.url)
+                      if (ch) handleChannelClick(ch)
+                    }}
+                  />
+                )}
                 {renderFavoriteLiveRow()}
 
                 {classifiedSports && classifiedSports.futebol.length > 0 && (
