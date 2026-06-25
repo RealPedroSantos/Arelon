@@ -66,6 +66,8 @@ export function MediaDetailScreen() {
   const [backgroundImage, setBackgroundImage] = useState<string>('') // will always be a string after fetch
   const [trailerSource, setTrailerSource] = useState<string | null>(null) // direct video url or youtube id
   const [isTrailerYoutube, setIsTrailerYoutube] = useState(false)
+  // Logo-texto (clearart) do conteúdo, quando a API fornece movie_image
+  const [logoText, setLogoText] = useState<string | null>(null)
 
   // Helper to extract YouTube video ID from various formats
   function extractYoutubeId(input: string): string | null {
@@ -82,6 +84,7 @@ export function MediaDetailScreen() {
     setBackgroundImage('')
     setTrailerSource(null)
     setIsTrailerYoutube(false)
+    setLogoText(selectedDetailMedia?.logoText ?? null)
 
     const t = setTimeout(() => btnPlayRef.current?.focus(), 100)
     return () => clearTimeout(t)
@@ -107,6 +110,7 @@ export function MediaDetailScreen() {
         let bgImage = selectedDetailMedia.poster || ''
         let trailer: string | null = null
         let isYT = false
+        let logo: string | null = selectedDetailMedia.logoText || null
 
         if (selectedDetailMedia.type === 'movie') {
           const res = await getVodInfo(server.activeServer, server.username, server.password, selectedDetailMedia.id)
@@ -129,6 +133,10 @@ export function MediaDetailScreen() {
               bgImage = backdrops
             } else if (res.info.movie_image) {
               bgImage = res.info.movie_image || bgImage
+            }
+
+            if (typeof res.info.movie_image === 'string' && res.info.movie_image) {
+              logo = res.info.movie_image
             }
 
             // Trailer detection
@@ -169,6 +177,10 @@ export function MediaDetailScreen() {
               bgImage = res.info.movie_image || res.info.cover || bgImage
             }
 
+            if (typeof res.info.movie_image === 'string' && res.info.movie_image) {
+              logo = res.info.movie_image
+            }
+
             const t = res.info.trailer || res.info.youtube_trailer
             if (t) {
               if (t.includes('youtube') || t.includes('youtu.be') || t.length === 11) {
@@ -191,6 +203,7 @@ export function MediaDetailScreen() {
         setBackgroundImage(bgImage || selectedDetailMedia.poster || '')
         setTrailerSource(trailer)
         setIsTrailerYoutube(isYT)
+        setLogoText(logo)
       } catch (err) {
         console.error('Erro ao buscar detalhes da mídia:', err)
         setDetails({
@@ -401,7 +414,19 @@ export function MediaDetailScreen() {
       {/* Scrollable content area — backgrounds stay fixed */}
       <div className="detail-scroll-area">
         <div className="detail-content">
-        <h1 className="detail-title">{selectedDetailMedia.title}</h1>
+        {logoText ? (
+          <img
+            src={logoText}
+            alt={selectedDetailMedia.title}
+            className="media-detail-logo-text"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none'
+              setLogoText(null)
+            }}
+          />
+        ) : (
+          <h1 className="detail-title">{selectedDetailMedia.title}</h1>
+        )}
 
         <div className="detail-metadata">
           <span className="meta-badge">{yearText}</span>
