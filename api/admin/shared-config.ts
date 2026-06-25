@@ -1,20 +1,17 @@
 import { put, head } from '@vercel/blob'
 
-export const config = { runtime: 'edge' }
+// Node.js serverless function (default runtime — Edge não suporta @vercel/blob)
 
 const BLOB_PATHNAME = 'arelon/shared-admin-config.json'
 
-const CORS = {
+const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET,PUT,OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
 }
 
-function json(status: number, body: unknown) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json; charset=utf-8', ...CORS },
-  })
+function setCors(res: any) {
+  for (const [k, v] of Object.entries(CORS_HEADERS)) res.setHeader(k, v)
 }
 
 async function getConfig(): Promise<unknown | null> {
@@ -29,25 +26,31 @@ async function getConfig(): Promise<unknown | null> {
   }
 }
 
-export default async function handler(request: Request): Promise<Response> {
-  if (request.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: CORS })
+export default async function handler(req: any, res: any) {
+  setCors(res)
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).end()
+    return
   }
 
-  if (request.method === 'GET') {
+  if (req.method === 'GET') {
     const data = await getConfig()
     if (!data) {
-      return json(404, { error: 'Config not found' })
+      res.status(404).json({ error: 'Config not found' })
+      return
     }
-    return json(200, data)
+    res.status(200).json(data)
+    return
   }
 
-  if (request.method === 'PUT') {
+  if (req.method === 'PUT') {
     let body: unknown
     try {
-      body = await request.json()
+      body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body
     } catch {
-      return json(400, { error: 'Invalid JSON' })
+      res.status(400).json({ error: 'Invalid JSON' })
+      return
     }
 
     const blob = await put(BLOB_PATHNAME, JSON.stringify(body), {
@@ -57,8 +60,9 @@ export default async function handler(request: Request): Promise<Response> {
     })
 
     const saved = await fetch(blob.url, { cache: 'no-store' }).then((r) => r.json())
-    return json(200, saved)
+    res.status(200).json(saved)
+    return
   }
 
-  return json(405, { error: 'Method not allowed' })
+  res.status(405).json({ error: 'Method not allowed' })
 }
