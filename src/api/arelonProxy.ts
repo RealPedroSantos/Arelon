@@ -586,11 +586,6 @@ function mapRawChannel(raw: Record<string, unknown>, serverUrl: string, username
   }
 }
 
-function extractBackdrop(raw: unknown): string | undefined {
-  if (Array.isArray(raw) && raw.length > 0 && raw[0]) return String(raw[0])
-  if (typeof raw === 'string' && raw) return raw
-  return undefined
-}
 
 function mapRawMovie(raw: Record<string, unknown>, serverUrl: string, username: string, password: string): Movie {
   const id = String(raw.stream_id ?? '')
@@ -615,8 +610,6 @@ function mapRawMovie(raw: Record<string, unknown>, serverUrl: string, username: 
     plot: typeof raw.plot === 'string' ? raw.plot : undefined,
     year: raw.year != null ? String(raw.year) : undefined,
     rating: raw.rating != null ? String(raw.rating) : undefined,
-    backdrop: extractBackdrop(raw.backdrop_path),
-    logoText: typeof raw.movie_image === 'string' && raw.movie_image ? raw.movie_image : undefined,
   }
 }
 
@@ -636,8 +629,6 @@ function mapRawSeries(raw: Record<string, unknown>): Series {
     plot: typeof raw.plot === 'string' ? raw.plot : undefined,
     year: raw.year != null ? String(raw.year) : undefined,
     rating: raw.rating != null ? String(raw.rating) : undefined,
-    backdrop: extractBackdrop(raw.backdrop_path),
-    logoText: typeof raw.movie_image === 'string' && raw.movie_image ? raw.movie_image : undefined,
   }
 }
 

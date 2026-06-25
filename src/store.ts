@@ -71,8 +71,6 @@ export interface Movie {
   plot?: string
   year?: string
   rating?: string
-  backdrop?: string
-  logoText?: string
 }
 
 export interface Series {
@@ -85,8 +83,6 @@ export interface Series {
   plot?: string
   year?: string
   rating?: string
-  backdrop?: string
-  logoText?: string
 }
 
 export interface Episode {
