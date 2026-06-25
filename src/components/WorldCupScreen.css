@@ -1,0 +1,566 @@
+/* =====================================================
+   COPA DO MUNDO 2026 — Tela dedicada
+   ===================================================== */
+
+/* Hero Banner */
+.worldcup-hero {
+  position: relative;
+  min-height: 420px;
+  margin: -32px -74px 0 -74px;
+  padding: 160px 74px 48px 74px;
+  display: flex;
+  align-items: flex-end;
+  gap: 48px;
+  overflow: hidden;
+}
+
+.worldcup-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg,
+      rgba(0, 0, 0, 0.1) 0%,
+      rgba(0, 0, 0, 0.75) 70%,
+      #0a0a0f 100%),
+    linear-gradient(135deg,
+      #0d1b2a 0%,
+      #1b2838 30%,
+      #1a0a2e 60%,
+      #0d1b2a 100%);
+  z-index: 0;
+}
+
+.worldcup-hero > * {
+  position: relative;
+  z-index: 1;
+}
+
+.worldcup-hero-trophy {
+  width: 200px;
+  height: 200px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 24px;
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.15), rgba(212, 175, 55, 0.04));
+  border: 1px solid rgba(212, 175, 55, 0.25);
+  box-shadow: 0 8px 40px rgba(212, 175, 55, 0.12);
+}
+
+.worldcup-hero-trophy svg {
+  width: 120px;
+  height: 120px;
+  filter: drop-shadow(0 4px 12px rgba(212, 175, 55, 0.4));
+}
+
+.worldcup-hero-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.worldcup-hero-title {
+  font-size: 56px;
+  font-weight: 900;
+  color: #ffffff;
+  line-height: 1.05;
+  margin: 0 0 8px 0;
+  letter-spacing: -0.5px;
+  text-shadow: 0 2px 24px rgba(0,0,0,0.5);
+  font-family: 'Outfit', 'Inter', sans-serif;
+}
+
+.worldcup-hero-title span {
+  background: linear-gradient(90deg, #d4af37, #f0d060, #d4af37);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.worldcup-hero-subtitle {
+  font-size: 22px;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 500;
+  margin: 0 0 16px 0;
+  letter-spacing: 0.3px;
+}
+
+.worldcup-hero-meta {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.worldcup-hero-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 8px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.worldcup-hero-badge svg {
+  width: 18px;
+  height: 18px;
+  opacity: 0.75;
+}
+
+/* Countdown */
+.worldcup-countdown {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.worldcup-countdown-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(212, 175, 55, 0.1);
+  border: 1px solid rgba(212, 175, 55, 0.2);
+  border-radius: 10px;
+  padding: 8px 16px;
+  min-width: 64px;
+}
+
+.worldcup-countdown-value {
+  font-size: 28px;
+  font-weight: 900;
+  color: #d4af37;
+  font-family: 'Outfit', 'Inter', sans-serif;
+  line-height: 1.1;
+}
+
+.worldcup-countdown-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: rgba(212, 175, 55, 0.7);
+  letter-spacing: 1px;
+  margin-top: 2px;
+}
+
+.worldcup-countdown-sep {
+  font-size: 28px;
+  font-weight: 900;
+  color: rgba(212, 175, 55, 0.4);
+}
+
+/* Content Area */
+.worldcup-content {
+  padding: 32px 0 60px 0;
+}
+
+/* Phase tabs / Filter pills */
+.worldcup-phase-tabs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px 28px 10px;
+  margin-top: -10px;
+  margin-left: -10px;
+  margin-right: -10px;
+  overflow-x: auto;
+  overflow-y: visible;
+  scrollbar-width: none;
+}
+
+.worldcup-phase-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.worldcup-phase-tab {
+  flex-shrink: 0;
+  padding: 10px 24px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  font-family: 'Inter', sans-serif;
+}
+
+.worldcup-phase-tab:focus {
+  outline: none;
+  border-color: #1de7ff;
+  box-shadow: 0 0 0 2px rgba(29, 231, 255, 0.3);
+  color: #fff;
+  transform: scale(1.05);
+}
+
+.worldcup-phase-tab--active {
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.25), rgba(212, 175, 55, 0.08));
+  border-color: rgba(212, 175, 55, 0.5);
+  color: #d4af37;
+  box-shadow: 0 4px 16px rgba(212, 175, 55, 0.15);
+}
+
+/* Date Group */
+.worldcup-date-group {
+  margin-bottom: 36px;
+}
+
+.worldcup-date-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding-left: 4px;
+}
+
+.worldcup-date-label {
+  font-size: 26px;
+  font-weight: 800;
+  color: #ffffff;
+  font-family: 'Outfit', 'Inter', sans-serif;
+}
+
+.worldcup-date-weekday {
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.45);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.worldcup-date-today {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: #1de7ff;
+  background: rgba(29, 231, 255, 0.1);
+  border: 1px solid rgba(29, 231, 255, 0.25);
+  padding: 4px 12px;
+  border-radius: 8px;
+}
+
+/* Match cards scroll row */
+.worldcup-matches-row {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  overflow-y: visible;
+  padding-top: 16px;
+  padding-bottom: 16px;
+  margin-top: -16px;
+  margin-bottom: -16px;
+  scrollbar-width: none;
+  scroll-behavior: smooth;
+}
+
+.worldcup-matches-row::-webkit-scrollbar {
+  display: none;
+}
+
+/* Individual match card */
+.worldcup-match-card {
+  flex-shrink: 0;
+  width: 380px;
+  border-radius: 16px;
+  background: linear-gradient(160deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.85));
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 0;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  position: relative;
+}
+
+.worldcup-match-card:focus {
+  outline: none;
+  border-color: #1de7ff;
+  box-shadow:
+    0 0 0 2px rgba(29, 231, 255, 0.35),
+    0 16px 40px rgba(0, 0, 0, 0.5);
+  transform: scale(1.04);
+  z-index: 10;
+}
+
+.worldcup-match-card:focus .worldcup-match-card__body {
+  border-color: rgba(29, 231, 255, 0.12);
+}
+
+/* Card top stripe — group color */
+.worldcup-match-card__stripe {
+  height: 4px;
+  background: linear-gradient(90deg, #d4af37, #f0d060);
+}
+
+.worldcup-match-card__stripe--live {
+  background: linear-gradient(90deg, #1de7ff, #00b4d8);
+  animation: wc-stripe-glow 2s ease-in-out infinite;
+}
+
+@keyframes wc-stripe-glow {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+/* Card body */
+.worldcup-match-card__body {
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Card header: Group + Phase + Time */
+.worldcup-match-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.worldcup-match-card__group {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #d4af37;
+  letter-spacing: 1.2px;
+}
+
+.worldcup-match-card__time {
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.worldcup-match-card__time--live {
+  color: #1de7ff;
+  background: rgba(29, 231, 255, 0.1);
+  border: 1px solid rgba(29, 231, 255, 0.2);
+}
+
+/* Teams area */
+.worldcup-match-card__teams {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 4px 0;
+}
+
+.worldcup-match-card__team {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 120px;
+}
+
+.worldcup-match-card__flag {
+  width: 48px;
+  height: 36px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.worldcup-match-card__team-name {
+  font-size: 15px;
+  font-weight: 800;
+  color: #fff;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+  font-family: 'Outfit', 'Inter', sans-serif;
+}
+
+.worldcup-match-card__vs {
+  font-size: 16px;
+  font-weight: 900;
+  color: rgba(255, 255, 255, 0.35);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.worldcup-match-card__score {
+  font-size: 24px;
+  font-weight: 900;
+  color: #1de7ff;
+  font-family: 'Outfit', 'Inter', sans-serif;
+  text-shadow: 0 0 12px rgba(29, 231, 255, 0.3);
+}
+
+/* Venue */
+.worldcup-match-card__venue {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.4);
+  text-align: center;
+  font-weight: 500;
+}
+
+/* Broadcast channels row */
+.worldcup-match-card__broadcasts {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.worldcup-match-card__broadcasts-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 1px;
+  margin-right: 4px;
+}
+
+.worldcup-broadcast-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #ff00ff;
+  background: rgba(255, 0, 255, 0.08);
+  border: 1px solid rgba(255, 0, 255, 0.15);
+  padding: 3px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.worldcup-broadcast-chip:hover,
+.worldcup-broadcast-chip:focus {
+  background: rgba(255, 0, 255, 0.15);
+  border-color: rgba(255, 0, 255, 0.35);
+  color: #ff44ff;
+}
+
+/* Live badge on card */
+.worldcup-live-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(29, 231, 255, 0.15);
+  border: 1px solid rgba(29, 231, 255, 0.3);
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #1de7ff;
+  letter-spacing: 1px;
+  z-index: 5;
+}
+
+.worldcup-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #1de7ff;
+  box-shadow: 0 0 8px #1de7ff;
+  animation: match-dot-pulse 1.6s infinite ease-in-out;
+}
+
+/* Status badge for scheduled matches */
+.worldcup-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.worldcup-status-badge--live {
+  color: #1de7ff;
+}
+
+.worldcup-status-badge--scheduled {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.worldcup-status-badge--final {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* Empty state */
+.worldcup-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 24px;
+  text-align: center;
+}
+
+.worldcup-empty-icon {
+  width: 80px;
+  height: 80px;
+  color: rgba(212, 175, 55, 0.3);
+  margin-bottom: 20px;
+}
+
+.worldcup-empty-text {
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 600;
+}
+
+/* Section with channels to watch */
+.worldcup-channels-section {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.worldcup-channels-title {
+  font-size: 30px;
+  font-weight: 800;
+  color: #ff00ff;
+  margin-bottom: 20px;
+  font-family: 'Outfit', 'Inter', sans-serif;
+}
+
+/* Loading skeleton */
+.worldcup-skeleton-card {
+  flex-shrink: 0;
+  width: 380px;
+  height: 220px;
+  border-radius: 16px;
+  background: linear-gradient(
+    110deg,
+    rgba(255, 255, 255, 0.03) 0%,
+    rgba(255, 255, 255, 0.06) 40%,
+    rgba(255, 255, 255, 0.03) 60%
+  );
+  background-size: 200% 100%;
+  animation: wc-skeleton-shimmer 1.8s ease-in-out infinite;
+}
+
+@keyframes wc-skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Scrollable media-row integration */
+.worldcup-matches-row.media-row {
+  /* Inherit media-row scroll behavior for TV remote */
+}

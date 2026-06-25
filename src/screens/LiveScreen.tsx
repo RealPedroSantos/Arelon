@@ -43,7 +43,13 @@ export function LiveScreen({ filter = 'all' }: { filter?: 'tv' | 'esporte' | 'al
   const appendLiveChannels = useStore((s) => s.appendLiveChannels)
   const pageRef = useRef<HTMLDivElement>(null)
   const screenName = filter === 'tv' ? 'tv' : filter === 'esporte' ? 'esporte' : 'live'
-  const rememberReturnPoint = useMainReturnPoint(screenName, pageRef)
+  const rememberReturnPoint = useMainReturnPoint(screenName, pageRef, 150, {
+    // Ao entrar em Ao Vivo, ignora hero e favoritos e inicia no primeiro
+    // canal da faixa de notícias. O hook continua restaurando o canal
+    // anterior ao voltar do player quando existir um ponto salvo.
+    initialFocusSelector: '[data-live-initial-row="true"] .media-card[data-focusable="true"]',
+    initialFocusAttempts: 50,
+  })
   const [previewChannel, setPreviewChannel] = useState<Channel | null>(null)
   const [epgPrograms, setEpgPrograms] = useState<EpgProgram[]>([])
   const [activeSportTab, setActiveSportTab] = useState('all')
@@ -587,6 +593,7 @@ export function LiveScreen({ filter = 'all' }: { filter?: 'tv' | 'esporte' | 'al
   })
 
   const visibleSortedCategories = sortedCategories.slice(0, visibleLiveCategoryCount)
+  const initialNewsCategoryId = visibleSortedCategories.find((category) => getCategoryPriority(category.name) === 1)?.id
 
   useEffect(() => {
     for (const category of visibleSortedCategories) {
@@ -836,7 +843,7 @@ export function LiveScreen({ filter = 'all' }: { filter?: 'tv' | 'esporte' | 'al
 
                 if (catChannels.length === 0) return null
                 return (
-                  <MediaRow key={cat.id} title={cat.name}>
+                  <MediaRow key={cat.id} title={cat.name} initialFocusRow={cat.id === initialNewsCategoryId}>
                     {catChannels.map((c) => (
                       <MediaCard
                         key={c.id}

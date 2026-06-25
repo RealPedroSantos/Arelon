@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../store'
-import type { Episode, EpisodePlaybackItem, FavoriteKind } from '../store'
+import type { ContinueWatchingItem, Episode, EpisodePlaybackItem, FavoriteKind } from '../store'
 import { moveFocus, useRemote } from '../hooks/useRemote'
 import { unlockAudio } from '../lib/tvSound'
 import { getVodInfo, getSeriesInfo, getSeriesEpisodes, episodeUrl } from '../api/xtream'
@@ -21,6 +21,7 @@ export function MediaDetailScreen() {
   const setSelectedDetailMedia = useStore((s) => s.setSelectedDetailMedia)
   const setCurrentMedia = useStore((s) => s.setCurrentMedia)
   const setPlayerReturnDetail = useStore((s) => s.setPlayerReturnDetail)
+  const continueWatching = useStore((s) => s.continueWatching)
   const favorites = useStore((s) => s.favorites)
   const toggleFavorite = useStore((s) => s.toggleFavorite)
   const server = useStore((s) => s.server)
@@ -45,6 +46,21 @@ export function MediaDetailScreen() {
 
   const [details, setDetails] = useState<MediaDetails | null>(null)
   const [loadingDetails, setLoadingDetails] = useState(false)
+
+  // Verifica se este conteudo esta na lista de Continue Assistindo
+  const continueItem: ContinueWatchingItem | undefined = selectedDetailMedia
+    ? continueWatching.find(
+        (i) => i.id === selectedDetailMedia.id && i.type === selectedDetailMedia.type
+      )
+    : undefined
+
+  function fmtPos(s: number): string {
+    if (!isFinite(s) || s <= 0) return ''
+    const hrs = Math.floor(s / 3600)
+    const mins = Math.floor((s % 3600) / 60)
+    const secs = Math.floor(s % 60).toString().padStart(2, '0')
+    return hrs > 0 ?  : 
+  }
 
   // Background & Trailer support for pre-player screen
   const [backgroundImage, setBackgroundImage] = useState<string>('') // will always be a string after fetch
@@ -287,8 +303,9 @@ export function MediaDetailScreen() {
       return
     }
 
-    // Filme: reproduz direto
-    setCurrentMedia(selectedDetailMedia)
+    // Filme: reproduz com startPosition se estava no continueWatching
+    const startPos = continueItem?.position
+    setCurrentMedia({ ...selectedDetailMedia, startPosition: startPos })
   }
 
   function handleToggleFavorite() {
@@ -407,7 +424,11 @@ export function MediaDetailScreen() {
             tabIndex={focusedBtn === 0 ? 0 : -1}
             onClick={handlePlay}
           >
-            {isSeries ? 'Ver Episódios' : 'Reproduzir'}
+            {isSeries
+              ? 'Ver Episódios'
+              : continueItem?.position
+                ? `Continuar de ${fmtPos(continueItem.position)}`
+                : 'Reproduzir'}
           </button>
           <button
             ref={btnAddRef}

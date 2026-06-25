@@ -63,6 +63,8 @@ export interface Movie {
   id: string
   name: string
   poster: string
+  backdrop?: string
+  logoText?: string
   categoryId: string
   streamUrl: string
   ext: string
@@ -75,6 +77,8 @@ export interface Series {
   id: string
   name: string
   cover: string
+  backdrop?: string
+  logoText?: string
   categoryId: string
   plot?: string
   year?: string
@@ -322,12 +326,14 @@ export const useStore = create<AppStore>()(
           const key = `${media.type}:${media.id}`
           const existing = state.continueWatching.filter((item) => `${item.type}:${item.id}` !== key)
 
+          // Considera "assistido" se chegou perto do fim (>=95%) — remove da fila
           if (progress >= 0.95) {
             if (existing.length === state.continueWatching.length) return state
             return { continueWatching: existing }
           }
 
-          if (progress < 0.5) return state
+          // Só salva se assistiu pelo menos 3 minutos absolutos
+          if (position < 180) return state
 
           const item: ContinueWatchingItem = {
             ...media,

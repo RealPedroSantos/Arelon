@@ -4,6 +4,11 @@ import { focusFirst } from './useRemote'
 
 const FOCUSABLE_SELECTOR = '[data-focusable="true"]:not([disabled]):not([aria-hidden="true"])'
 
+type MainReturnPointOptions = {
+  initialFocusSelector?: string
+  initialFocusAttempts?: number
+}
+
 function getFocusableElements(root: HTMLElement): HTMLElement[] {
   return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter((el) => {
     const rect = el.getBoundingClientRect()
@@ -105,10 +110,17 @@ function restoreMainReturnPoint(point: MainReturnPoint, root: HTMLElement | null
   return true
 }
 
-export function useMainReturnPoint(screen: Screen, pageRef: RefObject<HTMLElement | null>, delay = 150) {
+export function useMainReturnPoint(
+  screen: Screen,
+  pageRef: RefObject<HTMLElement | null>,
+  delay = 150,
+  options: MainReturnPointOptions = {},
+) {
   const mainReturnPoint = useStore((s) => s.mainReturnPoint)
   const setMainReturnPoint = useStore((s) => s.setMainReturnPoint)
   const handledInitialFocusRef = useRef(false)
+  const initialFocusSelector = options.initialFocusSelector
+  const initialFocusAttempts = options.initialFocusAttempts ?? 20
 
   useEffect(() => {
     handledInitialFocusRef.current = false
@@ -143,6 +155,21 @@ export function useMainReturnPoint(screen: Screen, pageRef: RefObject<HTMLElemen
         }
       }
 
+      if (initialFocusSelector) {
+        const preferredTarget = pageRef.current?.querySelector<HTMLElement>(initialFocusSelector)
+        if (preferredTarget) {
+          focusFirst(preferredTarget)
+          finish(!!point)
+          return
+        }
+
+        if (attempts < initialFocusAttempts) {
+          attempts += 1
+          timer = setTimeout(run, 100)
+          return
+        }
+      }
+
       focusFirst(pageRef.current)
       finish(!!point)
     }
@@ -153,7 +180,7 @@ export function useMainReturnPoint(screen: Screen, pageRef: RefObject<HTMLElemen
       cancelled = true
       if (timer) clearTimeout(timer)
     }
-  }, [delay, mainReturnPoint, pageRef, screen, setMainReturnPoint])
+  }, [delay, initialFocusAttempts, initialFocusSelector, mainReturnPoint, pageRef, screen, setMainReturnPoint])
 
   return useCallback(() => {
     setMainReturnPoint(captureMainReturnPoint(screen, pageRef.current))

@@ -278,7 +278,11 @@ export function activateFocusedElement(container?: HTMLElement | null): boolean 
 
 export function focusFirst(container?: HTMLElement | null) {
   const root = container ?? document
-  const el = root.querySelector<HTMLElement>('[data-focusable="true"]:not([disabled])')
+  const selector = '[data-focusable="true"]:not([disabled])'
+  const el =
+    root instanceof HTMLElement && root.matches(selector)
+      ? root
+      : root.querySelector<HTMLElement>(selector)
   if (el) {
     // Mesma ordem: scroll → foco, pela mesma razão do moveFocus acima.
     focusElement(el)

@@ -57,6 +57,8 @@ export function PlayerScreen() {
   const [buffering, setBuffering] = useState(true)
   const [infoMsg, setInfoMsg] = useState('')
   const [nextEpisodeCountdown, setNextEpisodeCountdown] = useState<number | null>(null)
+  const [showSkipIntroOverlay, setShowSkipIntroOverlay] = useState(false)
+  const skipIntroTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [selectedQuality, setSelectedQuality] = useState('Auto')
   const [showQualityMenu, setShowQualityMenu] = useState(false)
@@ -207,6 +209,20 @@ export function PlayerScreen() {
   const playerMeta = isLiveContent ? 'AO VIVO' : isSeries ? 'Série' : 'Filme'
   const canSkipIntro = isSeries && currentTime < 150
   const canNextEpisode = isSeries && !!nextEpisodeItem && duration > 0 && currentTime > duration - 120
+
+  // Mostra overlay Pular Intro nos primeiros 150s de episodio, some em 8s
+  useEffect(() => {
+    if (!isSeries || isLiveContent) { setShowSkipIntroOverlay(false); return }
+    if (currentTime > 5 && currentTime < 150) {
+      setShowSkipIntroOverlay(true)
+      if (skipIntroTimerRef.current) clearTimeout(skipIntroTimerRef.current)
+      skipIntroTimerRef.current = setTimeout(() => setShowSkipIntroOverlay(false), 8000)
+    } else {
+      setShowSkipIntroOverlay(false)
+    }
+    return () => { if (skipIntroTimerRef.current) clearTimeout(skipIntroTimerRef.current) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [Math.floor(currentTime / 5), isSeries, isLiveContent])
 
   const playNextEpisode = useCallback(() => {
     if (!nextEpisodeItem) {
@@ -880,6 +896,17 @@ export function PlayerScreen() {
               {!isLiveContent && (
                 <button
                   className="apple-btn"
+                  title="Informações"
+                  data-focusable={showControls && !showQualityMenu ? "true" : "false"}
+                  onClick={() => showFeatureMessage('Informações')}
+                >
+                  <svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="8.01"/><line x1="12" y1="12" x2="12" y2="16"/></svg>
+                </button>
+              )}
+
+              {!isLiveContent && (
+                <button
+                  className="apple-btn"
                   title="Legendas"
                   data-focusable={showControls && !showQualityMenu ? "true" : "false"}
                   onClick={() => showFeatureMessage('Legendas')}
@@ -996,56 +1023,31 @@ export function PlayerScreen() {
               >
                 Adicionar ao Multi-View
               </button>
-            ) : (
-              <>
-                <button
-                  className="apple-control-pill player-btn-action"
-                  data-focusable={showControls && !showQualityMenu ? "true" : "false"}
-                  onClick={() => showFeatureMessage('Informações')}
-                >
-                  Informações
-                </button>
-
-                {canSkipIntro ? (
-                  <button
-                    id="player-btn-skip"
-                    className="apple-control-pill player-btn-action"
-                    data-focusable={showControls && !showQualityMenu ? "true" : "false"}
-                    onClick={skipIntro}
-                  >
-                    Pular Intro
-                  </button>
-                ) : (
-                  <button
-                    className="apple-control-pill player-btn-action"
-                    data-focusable={showControls && !showQualityMenu ? "true" : "false"}
-                    onClick={() => showFeatureMessage('Em Foco')}
-                  >
-                    Em Foco
-                  </button>
-                )}
-
-                {canNextEpisode ? (
-                  <button
-                    id="player-btn-next"
-                    className="apple-control-pill player-btn-action"
-                    data-focusable={showControls && !showQualityMenu ? "true" : "false"}
-                    onClick={playNextEpisode}
-                  >
-                    {nextEpisodeCountdown !== null ? `Próximo Episódio em ${nextEpisodeCountdown}s` : 'Próximo Episódio'}
-                  </button>
-                ) : (
-                  <button
-                    className="apple-control-pill player-btn-action"
-                    data-focusable={showControls && !showQualityMenu ? "true" : "false"}
-                    onClick={continueWatching}
-                  >
-                    Continue Assistindo
-                  </button>
-                )}
-              </>
-            )}
+            ) : canNextEpisode ? (
+              <button
+                id="player-btn-next"
+                className="apple-control-pill player-btn-action"
+                data-focusable={showControls && !showQualityMenu ? "true" : "false"}
+                onClick={playNextEpisode}
+              >
+                {nextEpisodeCountdown !== null
+                  ? 
+                  : 'Próximo Episódio'}
+              </button>
+            ) : null}
           </div>
+
+          {/* Overlay Pular Intro */}
+          {showSkipIntroOverlay && (
+            <button
+              id="player-btn-skip"
+              className="player-skip-intro-overlay"
+              data-focusable={showControls ? "true" : "false"}
+              onClick={() => { skipIntro(); setShowSkipIntroOverlay(false) }}
+            >
+              Pular Intro
+            </button>
+          )}
         </div>
       </div>
 

@@ -592,10 +592,17 @@ function mapRawMovie(raw: Record<string, unknown>, serverUrl: string, username: 
   const base = serverUrl.replace(/\/+$/, '')
   const u = encodeURIComponent(username)
   const p = encodeURIComponent(password)
+  const backdropRaw = raw.backdrop_path
+  const backdrop = Array.isArray(backdropRaw) && backdropRaw.length > 0
+    ? String(backdropRaw[0])
+    : typeof backdropRaw === 'string' && backdropRaw ? backdropRaw : undefined
+  const logoText = typeof raw.movie_image === 'string' && raw.movie_image ? raw.movie_image : undefined
   return {
     id,
     name: String(raw.name ?? ''),
     poster: String(raw.stream_icon ?? ''),
+    backdrop,
+    logoText,
     categoryId: String(raw.category_id ?? ''),
     streamUrl: `${base}/movie/${u}/${p}/${id}.${ext}`,
     ext,
@@ -606,10 +613,17 @@ function mapRawMovie(raw: Record<string, unknown>, serverUrl: string, username: 
 }
 
 function mapRawSeries(raw: Record<string, unknown>): Series {
+  const backdropRaw = raw.backdrop_path
+  const backdrop = Array.isArray(backdropRaw) && backdropRaw.length > 0
+    ? String(backdropRaw[0])
+    : typeof backdropRaw === 'string' && backdropRaw ? backdropRaw : undefined
+  const logoText = typeof raw.movie_image === 'string' && raw.movie_image ? raw.movie_image : undefined
   return {
     id: String(raw.series_id ?? ''),
     name: String(raw.name ?? ''),
     cover: String(raw.cover ?? ''),
+    backdrop,
+    logoText,
     categoryId: String(raw.category_id ?? ''),
     plot: typeof raw.plot === 'string' ? raw.plot : undefined,
     year: raw.year != null ? String(raw.year) : undefined,
