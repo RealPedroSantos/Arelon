@@ -130,6 +130,7 @@ function eventPayload(
   extra: Partial<EventPayload> = {},
 ): EventPayload {
   const media = session?.media
+  const playbackPosition = video && Number.isFinite(video.currentTime) ? video.currentTime : null
   const baseMetadata: Record<string, unknown> = {
     privacy_policy_version: NEWSMETER_POLICY_VERSION,
     content_type: media?.type || null,
@@ -147,7 +148,7 @@ function eventPayload(
     program_id: null,
     stream_id: media?.id || null,
     timestamp: new Date().toISOString(),
-    playback_position: Number.isFinite(video?.currentTime) ? video!.currentTime : null,
+    playback_position: playbackPosition,
     player_state: video
       ? video.ended
         ? 'ended'
