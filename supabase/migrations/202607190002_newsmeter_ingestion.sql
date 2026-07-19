@@ -4,12 +4,20 @@ language sql
 stable
 set search_path = public
 as $$
-  select coalesce(
-    (select c.id from public.channels c where c.id = target_channel_id and c.is_active limit 1),
-    (select c.id from public.channels c where c.stream_id = target_stream_id and c.is_active limit 1),
-    (select s.channel_id from public.streams s join public.channels c on c.id = s.channel_id
-      where s.external_stream_id = target_stream_id and s.is_active and c.is_active limit 1)
-  );
+  with resolved as (
+    select
+      (select c.id from public.channels c where c.id = target_channel_id and c.is_active limit 1) as explicit_channel_id,
+      coalesce(
+        (select c.id from public.channels c where c.stream_id = target_stream_id and c.is_active limit 1),
+        (select s.channel_id from public.streams s join public.channels c on c.id = s.channel_id
+          where s.external_stream_id = target_stream_id and s.is_active and c.is_active limit 1)
+      ) as stream_channel_id
+  )
+  select case
+    when explicit_channel_id is not null and stream_channel_id is not null and explicit_channel_id <> stream_channel_id then null
+    else coalesce(explicit_channel_id, stream_channel_id)
+  end
+  from resolved;
 $$;
 
 create or replace function public.newsmeter_resolve_program(target_channel_id uuid, target_timestamp timestamptz)
@@ -80,6 +88,14 @@ begin
     return jsonb_build_object('accepted', true, 'duplicate', true, 'reason', 'event_id já processado');
   end if;
 
+  if event_kind = 'playback_started' and target_channel_id is null then
+    return jsonb_build_object(
+      'accepted', false,
+      'duplicate', false,
+      'reason', 'stream não mapeado ou incompatível com o channel_id informado'
+    );
+  end if;
+
   if event_kind = 'playback_failed' then
     insert into public.playback_errors (
       event_id, session_id, anonymous_device_id, channel_id, stream_id, error_code,
@@ -93,9 +109,8 @@ begin
   end if;
 
   if event_kind = 'playback_started' then
-    -- Sinaliza e encerra sobreposições impossíveis do mesmo dispositivo.
     update public.audience_sessions s
-      set ended_at = least(event_time, greatest(s.started_at, event_time)),
+      set ended_at = event_time,
           end_reason = 'overlap_replaced',
           anomaly_flags = array_append(s.anomaly_flags, 'overlapping_session')
     where s.anonymous_device_id = device_id
@@ -122,7 +137,6 @@ begin
       last_heartbeat_at = greatest(public.audience_sessions.last_heartbeat_at, excluded.last_heartbeat_at),
       updated_at = now();
 
-    -- Troca somente quando o cliente emitiu channel_changed e o novo canal iniciou em até 5 minutos.
     select s.* into previous_session
     from public.audience_sessions s
     where s.anonymous_device_id = device_id
@@ -257,7 +271,13 @@ begin
         and coalesce(s.ended_at, minute_end) > minute_start
     )::integer,
     count(distinct s.anonymous_device_id)::integer,
-    coalesce(sum(greatest(0, extract(epoch from least(coalesce(s.ended_at, minute_end), minute_end) - greatest(s.started_at, minute_start)))), 0)::bigint,
+    coalesce(sum(
+      greatest(0, extract(epoch from least(coalesce(s.ended_at, minute_end), minute_end) - greatest(s.started_at, minute_start)))
+      * least(
+        1::numeric,
+        s.valid_watch_seconds::numeric / greatest(1::numeric, extract(epoch from coalesce(s.ended_at, minute_end) - s.started_at))
+      )
+    ), 0)::bigint,
     count(*) filter (where s.started_at >= minute_start and s.started_at < minute_end)::integer,
     count(*) filter (where s.ended_at >= minute_start and s.ended_at < minute_end)::integer,
     count(*) filter (where s.started_at >= minute_start and s.started_at < minute_end)::integer,
