@@ -77,7 +77,7 @@ it('impede associação entre stream brasileiro e versão internacional', () => 
 })
 
 it('sinaliza mapeamento duplicado', () => {
-  expect(validateModelMappings([...mappings, { ...mappings[0], channelId: 'errado' }])).toContain('Stream duplicado: cnn-br')
+  expect(validateModelMappings([...mappings, { ...mappings[0]!, channelId: 'errado' }])).toContain('Stream duplicado: cnn-br')
 })
 
 it('exclui dispositivos de teste dos espectadores ativos', () => {
