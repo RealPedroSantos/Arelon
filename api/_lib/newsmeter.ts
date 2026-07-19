@@ -144,7 +144,7 @@ function rateLimit(key: string): boolean {
 function parseBody(req: VercelRequestLike): unknown {
   if (typeof req.body !== 'string') return req.body
   if (Buffer.byteLength(req.body, 'utf8') > 128_000) throw new Error('Payload excede o limite permitido.')
-  return JSON.parse(req.body)
+  return JSON.parse(req.body) as unknown
 }
 
 function supabaseHeaders(prefer?: string): Record<string, string> {
@@ -176,6 +176,14 @@ async function rpc<T = unknown>(name: string, body: unknown): Promise<T> {
   const response = await supabase(`rpc/${name}`, { method: 'POST', body: JSON.stringify(body) })
   const text = await response.text()
   return (text ? JSON.parse(text) : null) as T
+}
+
+async function audit(action: string, entityType: string, entityId: string | null, afterData: unknown): Promise<void> {
+  await supabase('audit_logs', {
+    method: 'POST',
+    headers: supabaseHeaders('return=minimal'),
+    body: JSON.stringify({ action, entity_type: entityType, entity_id: entityId, after_data: afterData }),
+  })
 }
 
 function queryValue(req: VercelRequestLike, name: string, fallback = ''): string {
@@ -218,15 +226,14 @@ async function ingest(req: VercelRequestLike, res: VercelResponseLike, expectedT
       client_device_token: undefined,
       is_late_event: delaySeconds > 300,
       ingest_delay_seconds: delaySeconds,
-      accepted_policy_version: String(payload.metadata.privacy_policy_version || ''),
+      accepted_policy_version: typeof payload.metadata?.privacy_policy_version === 'string'
+        ? payload.metadata.privacy_policy_version
+        : '',
     }
     const result = await rpc<{ accepted?: boolean; duplicate?: boolean; reason?: string }>('newsmeter_ingest_event', { payload: enriched })
     json(res, result?.duplicate ? 200 : 202, { accepted: result?.accepted !== false, duplicate: !!result?.duplicate, reason: result?.reason || null })
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      json(res, 400, { error: 'Evento inválido.', issues: error.issues })
-      return
-    }
+    if (error instanceof z.ZodError) return json(res, 400, { error: 'Evento inválido.', issues: error.issues })
     json(res, 500, { error: error instanceof Error ? error.message : 'Falha ao registrar evento.' })
   }
 }
@@ -258,30 +265,31 @@ async function technical(req: VercelRequestLike, res: VercelResponseLike): Promi
 async function channelDetail(id: string, res: VercelResponseLike): Promise<void> {
   const response = await supabase(`channels?select=*,streams(*),programs(*)&id=eq.${encodeURIComponent(id)}&limit=1`)
   const rows = await response.json() as unknown[]
-  if (!rows[0]) {
-    json(res, 404, { error: 'Canal não encontrado.' })
-    return
-  }
+  if (!rows[0]) return json(res, 404, { error: 'Canal não encontrado.' })
   json(res, 200, rows[0])
 }
 
 async function programDetail(id: string, res: VercelResponseLike): Promise<void> {
   const response = await supabase(`programs?select=*,channels(name,canonical_key)&id=eq.${encodeURIComponent(id)}&limit=1`)
   const rows = await response.json() as unknown[]
-  if (!rows[0]) {
-    json(res, 404, { error: 'Programa não encontrado.' })
-    return
-  }
+  if (!rows[0]) return json(res, 404, { error: 'Programa não encontrado.' })
   json(res, 200, rows[0])
 }
 
+function scalarText(value: unknown): string {
+  if (value == null) return ''
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return String(value)
+  try { return JSON.stringify(value) ?? '' } catch { return '[valor não serializável]' }
+}
+
 function csvCell(value: unknown): string {
-  const text = value == null ? '' : String(value)
+  const text = scalarText(value)
   return /[",\n\r;]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
 }
 
 function makeCsv(rows: Array<Record<string, unknown>>): Buffer {
-  const columns = rows.length ? Object.keys(rows[0]) : ['message']
+  const columns = rows[0] ? Object.keys(rows[0]) : ['message']
   const lines = [columns.map(csvCell).join(';')]
   if (!rows.length) lines.push(csvCell('Sem dados para o período.'))
   else for (const row of rows) lines.push(columns.map((column) => csvCell(row[column])).join(';'))
@@ -341,12 +349,13 @@ function zip(files: Array<{ name: string; data: Buffer }>): Buffer {
 }
 
 function xmlEscape(value: unknown): string {
-  return String(value ?? '').replace(/[<>&"']/g, (char) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' })[char] || char)
+  return scalarText(value).replace(/[<>&"']/g, (char) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' })[char] || char)
 }
 
 function makeXlsx(rows: Array<Record<string, unknown>>): Buffer {
   const safeRows = rows.length ? rows : [{ mensagem: 'Sem dados para o período.' }]
-  const columns = Object.keys(safeRows[0])
+  const firstRow = safeRows[0] ?? { mensagem: 'Sem dados para o período.' }
+  const columns = Object.keys(firstRow)
   const allRows = [columns, ...safeRows.map((row) => columns.map((column) => row[column])), [
     'Aviso', 'Os dados representam exclusivamente a utilização medida dentro deste aplicativo e não correspondem à audiência total da televisão brasileira.',
   ]]
@@ -364,12 +373,10 @@ function makeXlsx(rows: Array<Record<string, unknown>>): Buffer {
   return zip(files)
 }
 
-function pdfEscape(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)')
-}
+function pdfEscape(value: string): string { return value.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)') }
 
 function makePdf(rows: Array<Record<string, unknown>>): Buffer {
-  const lines = ['NewsMeter Brasil - Relatório interno', '', ...rows.slice(0, 45).map((row) => Object.values(row).slice(0, 7).join(' | ')), '', 'Os dados representam exclusivamente a utilização medida dentro deste aplicativo', 'e não correspondem à audiência total da televisão brasileira.']
+  const lines = ['NewsMeter Brasil - Relatório interno', '', ...rows.slice(0, 45).map((row) => Object.values(row).slice(0, 7).map(scalarText).join(' | ')), '', 'Os dados representam exclusivamente a utilização medida dentro deste aplicativo', 'e não correspondem à audiência total da televisão brasileira.']
   const content = lines.map((line, index) => `BT /F1 ${index === 0 ? 16 : 8} Tf 42 ${800 - index * 15} Td (${pdfEscape(line.slice(0, 145))}) Tj ET`).join('\n')
   const objects = [
     '<< /Type /Catalog /Pages 2 0 R >>',
@@ -391,10 +398,7 @@ function makePdf(rows: Array<Record<string, unknown>>): Buffer {
 
 async function exportReport(req: VercelRequestLike, res: VercelResponseLike): Promise<void> {
   const format = queryValue(req, 'format', 'csv').toLowerCase()
-  if (!['csv', 'xlsx', 'pdf'].includes(format)) {
-    json(res, 400, { error: 'Formato inválido.' })
-    return
-  }
+  if (!['csv', 'xlsx', 'pdf'].includes(format)) return json(res, 400, { error: 'Formato inválido.' })
   const start = rangeStart(queryValue(req, 'range', '1h'))
   const response = await supabase(`audience_minute_aggregates?select=minute_timestamp,channel_id,program_id,active_viewers,unique_viewers,valid_watch_seconds,sessions_started,sessions_ended,channel_entries,channel_exits,average_watch_time,buffering_seconds,playback_errors,share,internal_rating,peak_concurrent&minute_timestamp=gte.${encodeURIComponent(start)}&order=minute_timestamp.asc&limit=50000`)
   const rows = await response.json() as Array<Record<string, unknown>>
@@ -406,29 +410,20 @@ async function exportReport(req: VercelRequestLike, res: VercelResponseLike): Pr
 }
 
 async function simulate(req: VercelRequestLike, res: VercelResponseLike): Promise<void> {
-  if (process.env.NODE_ENV === 'production' && process.env.NEWSMETER_ALLOW_SIMULATION !== 'true') {
-    json(res, 404, { error: 'Simulador indisponível em produção.' })
-    return
-  }
+  if (process.env.NODE_ENV === 'production' && process.env.NEWSMETER_ALLOW_SIMULATION !== 'true') return json(res, 404, { error: 'Simulador indisponível em produção.' })
   try {
     const input = simulationSchema.parse(parseBody(req) || {})
     const result = await rpc('newsmeter_simulate', input)
     json(res, 202, { accepted: true, result })
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      json(res, 400, { error: 'Configuração de simulação inválida.', issues: error.issues })
-      return
-    }
+    if (error instanceof z.ZodError) return json(res, 400, { error: 'Configuração de simulação inválida.', issues: error.issues })
     throw error
   }
 }
 
 export async function handleAudience(req: VercelRequestLike, res: VercelResponseLike, segments: string[]): Promise<void> {
   setHeaders(res)
-  if (req.method === 'OPTIONS') {
-    res.status(204).end()
-    return
-  }
+  if (req.method === 'OPTIONS') return res.status(204).end()
   const [resource, id] = segments
   try {
     if (req.method === 'POST' && resource === 'events') return await ingest(req, res)
@@ -457,17 +452,17 @@ async function createChannel(req: VercelRequestLike, res: VercelResponseLike): P
   try {
     const channel = channelSchema.parse(parseBody(req))
     const response = await supabase('channels', {
-      method: 'POST',
-      headers: supabaseHeaders('return=representation'),
-      body: JSON.stringify(channel),
+      method: 'POST', headers: supabaseHeaders('return=representation'), body: JSON.stringify(channel),
     })
     const rows = await response.json() as unknown[]
-    json(res, 201, rows[0])
+    const created = rows[0]
+    const createdId = typeof created === 'object' && created !== null && 'id' in created && typeof created.id === 'string'
+      ? created.id
+      : null
+    await audit('channel.created', 'channel', createdId, created ?? channel)
+    json(res, 201, created)
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      json(res, 400, { error: 'Canal inválido.', issues: error.issues })
-      return
-    }
+    if (error instanceof z.ZodError) return json(res, 400, { error: 'Canal inválido.', issues: error.issues })
     throw error
   }
 }
@@ -476,36 +471,27 @@ async function patchChannel(id: string, req: VercelRequestLike, res: VercelRespo
   try {
     const patch = channelPatchSchema.parse(parseBody(req))
     const response = await supabase(`channels?id=eq.${encodeURIComponent(id)}`, {
-      method: 'PATCH',
-      headers: supabaseHeaders('return=representation'),
-      body: JSON.stringify({ ...patch, updated_at: new Date().toISOString() }),
+      method: 'PATCH', headers: supabaseHeaders('return=representation'), body: JSON.stringify({ ...patch, updated_at: new Date().toISOString() }),
     })
     const rows = await response.json() as unknown[]
-    if (!rows[0]) {
-      json(res, 404, { error: 'Canal não encontrado.' })
-      return
-    }
+    if (!rows[0]) return json(res, 404, { error: 'Canal não encontrado.' })
+    await audit('channel.updated', 'channel', id, rows[0])
     json(res, 200, rows[0])
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      json(res, 400, { error: 'Alteração inválida.', issues: error.issues })
-      return
-    }
+    if (error instanceof z.ZodError) return json(res, 400, { error: 'Alteração inválida.', issues: error.issues })
     throw error
   }
 }
 
 async function validateChannel(id: string, res: VercelResponseLike): Promise<void> {
   const result = await rpc<{ valid: boolean; issues: string[] }>('newsmeter_validate_channel_mapping', { target_channel_id: id })
+  await audit('channel.mapping_validated', 'channel', id, result)
   json(res, 200, result)
 }
 
 export async function handleAdminChannels(req: VercelRequestLike, res: VercelResponseLike, segments: string[]): Promise<void> {
   setHeaders(res)
-  if (req.method === 'OPTIONS') {
-    res.status(204).end()
-    return
-  }
+  if (req.method === 'OPTIONS') return res.status(204).end()
   if (!requireAdmin(req, res)) return
   const [id, action] = segments
   try {
