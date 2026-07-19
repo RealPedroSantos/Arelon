@@ -1,6 +1,7 @@
 name: NewsMeter CI
 
 on:
+  workflow_dispatch:
   push:
     branches: [feat/newsmeter-brasil]
   pull_request:
