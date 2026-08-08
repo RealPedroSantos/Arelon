@@ -1,0 +1,4 @@
+/* Correção pontual do pré-player: remove o recuo lateral esquerdo introduzido no hero. */
+.live-page .home-hero-banner {
+  padding-left: 0 !important;
+}
